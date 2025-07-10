@@ -36,6 +36,16 @@ const Contacts = () => {
     if (savedConfig) {
       setTelegramConfig(JSON.parse(savedConfig));
     }
+
+    // Секретная комбинация для админа: Ctrl+Shift+T
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+        setShowTelegramConfig(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const saveTelegramConfig = () => {
@@ -223,23 +233,13 @@ ${formData.message}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="mb-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowTelegramConfig(!showTelegramConfig)}
-                    className="mb-4"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Настроить Telegram
-                  </Button>
-
-                  {showTelegramConfig && (
-                    <Card className="mb-4 border-dashed">
+                {showTelegramConfig && (
+                  <div className="mb-4">
+                    <Card className="mb-4 border-dashed border-red-200 bg-red-50/50">
                       <CardHeader>
-                        <CardTitle className="text-lg">Настройки Telegram</CardTitle>
-                        <CardDescription>
-                          Введите данные вашего Telegram бота для получения заявок
+                        <CardTitle className="text-lg text-red-800">⚙️ Настройки администратора</CardTitle>
+                        <CardDescription className="text-red-600">
+                          Конфигурация Telegram для получения заявок
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
@@ -265,8 +265,8 @@ ${formData.message}
                         </Button>
                       </CardContent>
                     </Card>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
