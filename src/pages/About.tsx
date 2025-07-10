@@ -71,8 +71,7 @@ const About = () => {
   const achievements = [
     { number: "500+", description: "Завершенных проектов", icon: TrendingUp },
     { number: "15", description: "Лет на рынке", icon: Calendar },
-    { number: "98%", description: "Довольных клиентов", icon: Star },
-    { number: "24/7", description: "Техническая поддержка", icon: Shield }
+    { number: "98%", description: "Довольных клиентов", icon: Star }
   ];
 
   const testimonials = [

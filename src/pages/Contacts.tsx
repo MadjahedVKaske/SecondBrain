@@ -78,7 +78,6 @@ const Contacts = () => {
                     <div>
                       <p className="font-semibold text-foreground">Время работы</p>
                       <p className="text-muted-foreground">Пн-Пт: 9:00-18:00</p>
-                      <p className="text-muted-foreground">Поддержка: 24/7</p>
                     </div>
                   </div>
                 </CardContent>
