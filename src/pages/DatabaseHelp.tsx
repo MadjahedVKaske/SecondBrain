@@ -212,8 +212,8 @@ const DatabaseHelp = () => {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                      <Button variant="default" size="lg">
-                        Заказать внедрение
+                      <Button variant="default" size="lg" asChild>
+                        <Link to="/contacts">Заказать внедрение</Link>
                       </Button>
                         <Button variant="outline" size="lg" asChild>
                           <Link to="/contacts">Получить консультацию</Link>
