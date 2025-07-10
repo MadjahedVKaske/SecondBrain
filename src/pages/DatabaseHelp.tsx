@@ -237,8 +237,8 @@ const DatabaseHelp = () => {
                       Наши эксперты проведут детальный анализ ваших бизнес-процессов 
                       и подберут оптимальное решение с учетом всех особенностей.
                     </p>
-                    <Button variant="outline">
-                      Связаться с экспертом
+                    <Button variant="outline" asChild>
+                      <Link to="/contacts">Связаться с экспертом</Link>
                     </Button>
                   </div>
                 </div>
