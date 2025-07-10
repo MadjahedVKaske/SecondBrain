@@ -43,8 +43,8 @@ const Contacts = () => {
                     </div>
                     <div>
                       <p className="font-semibold text-foreground">Телефон</p>
-                      <a href="tel:+79999999999" className="text-primary hover:underline">
-                        +7 (999) 999-99-99
+                      <a href="tel:+79262654429" className="text-primary hover:underline">
+                        +7-926-265-44-29
                       </a>
                     </div>
                   </div>
@@ -67,7 +67,7 @@ const Contacts = () => {
                     </div>
                     <div>
                       <p className="font-semibold text-foreground">Адрес</p>
-                      <p className="text-muted-foreground">г. Москва, ул. Примерная, д. 1, офис 100</p>
+                      <p className="text-muted-foreground">Московская область, Красногорск, Ильинское шоссе 1А, 3 этаж, офис 15.6</p>
                     </div>
                   </div>
 
@@ -93,9 +93,9 @@ const Contacts = () => {
                     <MessageCircle className="w-5 h-5" />
                     <span>Telegram: @buro1</span>
                   </a>
-                  <a href="https://wa.me/79999999999" className="flex items-center space-x-3 text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="https://wa.me/79262654429" className="flex items-center space-x-3 text-muted-foreground hover:text-foreground transition-colors">
                     <MessageCircle className="w-5 h-5" />
-                    <span>WhatsApp: +7 (999) 999-99-99</span>
+                    <span>WhatsApp: +7-926-265-44-29</span>
                   </a>
                 </CardContent>
               </Card>
@@ -125,7 +125,7 @@ const Contacts = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">Телефон *</label>
-                      <Input placeholder="+7 (999) 999-99-99" required />
+                      <Input placeholder="+7-926-265-44-29" required />
                     </div>
                     <div>
                       <label className="text-sm font-medium mb-2 block">Email</label>

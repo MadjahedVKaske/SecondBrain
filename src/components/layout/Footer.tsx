@@ -19,11 +19,11 @@ const Footer = () => {
             </p>
             <div className="space-y-2">
               <a
-                href="tel:+79999999999"
+                href="tel:+79262654429"
                 className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <Phone className="w-4 h-4" />
-                <span>+7 (999) 999-99-99</span>
+                <span>+7-926-265-44-29</span>
               </a>
               <a
                 href="mailto:info@buro1.ru"
@@ -34,7 +34,7 @@ const Footer = () => {
               </a>
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <MapPin className="w-4 h-4" />
-                <span>г. Москва, ул. Примерная, д. 1</span>
+                <span>Московская область, Красногорск, Ильинское шоссе 1А</span>
               </div>
             </div>
           </div>
@@ -105,7 +105,7 @@ const Footer = () => {
                 <span>Telegram</span>
               </a>
               <a
-                href="https://wa.me/79999999999"
+                href="https://wa.me/79262654429"
                 className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <MessageCircle className="w-4 h-4" />
