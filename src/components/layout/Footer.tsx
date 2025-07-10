@@ -98,7 +98,7 @@ const Footer = () => {
             <h3 className="font-semibold text-foreground mb-4">Связаться с нами</h3>
             <div className="space-y-3">
               <a
-                href="https://t.me/buro1"
+                href="https://t.me/BorisovEvgen"
                 className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <MessageCircle className="w-4 h-4" />

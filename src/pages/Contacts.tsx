@@ -88,9 +88,9 @@ const Contacts = () => {
                   <CardTitle className="text-xl">Мессенджеры</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <a href="https://t.me/buro1" className="flex items-center space-x-3 text-muted-foreground hover:text-foreground transition-colors">
+                  <a href="https://t.me/BorisovEvgen" className="flex items-center space-x-3 text-muted-foreground hover:text-foreground transition-colors">
                     <MessageCircle className="w-5 h-5" />
-                    <span>Telegram: @buro1</span>
+                    <span>Telegram: @BorisovEvgen</span>
                   </a>
                   <a href="https://wa.me/79262654429" className="flex items-center space-x-3 text-muted-foreground hover:text-foreground transition-colors">
                     <MessageCircle className="w-5 h-5" />
