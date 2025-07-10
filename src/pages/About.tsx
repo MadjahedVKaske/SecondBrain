@@ -240,43 +240,6 @@ const About = () => {
             </div>
           </div>
 
-          {/* Преимущества */}
-          <Card className="border-border bg-gradient-to-r from-primary/5 to-accent/5">
-            <CardContent className="p-8 text-center">
-              <Award className="w-12 h-12 text-primary mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-foreground mb-4">
-                Почему выбирают нас?
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Сертификация</h4>
-                  <p className="text-muted-foreground">
-                    Все специалисты имеют официальные сертификаты 1С
-                  </p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Гарантии</h4>
-                  <p className="text-muted-foreground">
-                    Предоставляем гарантию на все выполненные работы
-                  </p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-foreground mb-2">Поддержка</h4>
-                  <p className="text-muted-foreground">
-                    Круглосуточная техническая поддержка после внедрения
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button variant="default" size="lg" asChild>
-                  <Link to="/contacts">Начать сотрудничество</Link>
-                </Button>
-                <Button variant="outline" size="lg">
-                  Узнать больше
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </Layout>
