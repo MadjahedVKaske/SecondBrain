@@ -51,9 +51,9 @@ const Header = () => {
 
           {/* Contact Button */}
           <div className="hidden lg:flex items-center space-x-4">
-            <a href="tel:+79999999999" className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors">
+            <a href="tel:+79262654429" className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors">
               <Phone className="w-4 h-4" />
-              <span>+7 (999) 999-99-99</span>
+              <span>+7(926) 265-44-29</span>
             </a>
             <Button variant="default" size="sm">
               Оставить заявку
@@ -91,11 +91,11 @@ const Header = () => {
               ))}
               <div className="px-4 py-2 space-y-2">
                 <a
-                  href="tel:+79999999999"
+                  href="tel:+79262654429"
                   className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
                 >
                   <Phone className="w-4 h-4" />
-                  <span>+7 (999) 999-99-99</span>
+                  <span>+7(926) 265-44-29</span>
                 </a>
                 <Button variant="default" size="sm" className="w-full">
                   Оставить заявку
