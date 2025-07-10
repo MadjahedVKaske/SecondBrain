@@ -44,7 +44,7 @@ const Contacts = () => {
                     <div>
                       <p className="font-semibold text-foreground">Телефон</p>
                       <a href="tel:+79262654429" className="text-primary hover:underline">
-                        +7-926-265-44-29
+                        +7(926) 265-44-29
                       </a>
                     </div>
                   </div>
@@ -95,7 +95,7 @@ const Contacts = () => {
                   </a>
                   <a href="https://wa.me/79262654429" className="flex items-center space-x-3 text-muted-foreground hover:text-foreground transition-colors">
                     <MessageCircle className="w-5 h-5" />
-                    <span>WhatsApp: +7-926-265-44-29</span>
+                    <span>WhatsApp: +7(926) 265-44-29</span>
                   </a>
                 </CardContent>
               </Card>
@@ -125,7 +125,7 @@ const Contacts = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium mb-2 block">Телефон *</label>
-                      <Input placeholder="+7-926-265-44-29" required />
+                      <Input placeholder="+7(926) 265-44-29" required />
                     </div>
                     <div>
                       <label className="text-sm font-medium mb-2 block">Email</label>
