@@ -40,31 +40,31 @@ const About = () => {
 
   const team = [
     {
-      name: "Алексей Петров",
+      name: "Борисов Евгений",
       position: "Руководитель проектов",
-      experience: "12 лет",
-      specialization: "Внедрение 1С, управление проектами",
+      experience: "более 15 лет",
+      specialization: "Сертифицированный специалист 1С. Внедрение 1С, управление проектами",
       image: "/api/placeholder/200/200"
     },
     {
-      name: "Мария Иванова",
+      name: "Герасимов Алексей",
       position: "Ведущий разработчик",
-      experience: "8 лет",
+      experience: "более 10 лет",
       specialization: "Разработка, интеграции, API",
       image: "/api/placeholder/200/200"
     },
     {
-      name: "Дмитрий Сидоров",
-      position: "Консультант по маркировке",
-      experience: "6 лет",
+      name: "Носырев Дмитрий",
+      position: "Разработчик",
+      experience: "более 3-х лет",
       specialization: "Честный Знак, ГИС МТ, маркировка",
       image: "/api/placeholder/200/200"
     },
     {
-      name: "Анна Козлова",
-      position: "Специалист по обучению",
-      experience: "5 лет",
-      specialization: "Обучение пользователей, документация",
+      name: "Семенов Михаил",
+      position: "Разработчик",
+      experience: "более 10 лет",
+      specialization: "Веб и 1С разработка",
       image: "/api/placeholder/200/200"
     }
   ];
