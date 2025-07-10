@@ -2,6 +2,7 @@ import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { 
   TrendingUp, 
@@ -266,11 +267,11 @@ const Cases = () => {
                   для автоматизации вашего бизнеса.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button variant="default" size="lg">
-                    Обсудить проект
+                  <Button variant="default" size="lg" asChild>
+                    <Link to="/contacts">Обсудить проект</Link>
                   </Button>
-                  <Button variant="outline" size="lg">
-                    Получить консультацию
+                  <Button variant="outline" size="lg" asChild>
+                    <Link to="/contacts">Получить консультацию</Link>
                   </Button>
                 </div>
               </CardContent>

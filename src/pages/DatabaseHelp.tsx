@@ -2,6 +2,7 @@ import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { 
   Building2, 
@@ -214,9 +215,9 @@ const DatabaseHelp = () => {
                       <Button variant="default" size="lg">
                         Заказать внедрение
                       </Button>
-                      <Button variant="outline" size="lg">
-                        Получить консультацию
-                      </Button>
+                        <Button variant="outline" size="lg" asChild>
+                          <Link to="/contacts">Получить консультацию</Link>
+                        </Button>
                     </div>
                   </div>
                 </CardContent>

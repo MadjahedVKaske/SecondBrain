@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Link } from "react-router-dom";
 import { 
   QrCode, 
   FileText, 
@@ -272,8 +273,8 @@ const Marking = () => {
                   <Button variant="default" size="lg">
                     Заказать внедрение
                   </Button>
-                  <Button variant="outline" size="lg">
-                    Получить консультацию
+                  <Button variant="outline" size="lg" asChild>
+                    <Link to="/contacts">Получить консультацию</Link>
                   </Button>
                 </div>
               </CardContent>

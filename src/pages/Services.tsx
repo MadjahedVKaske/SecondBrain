@@ -2,6 +2,7 @@ import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 import { 
   Settings, 
   Zap, 
@@ -190,9 +191,11 @@ const Services = () => {
             </div>
             
             <div className="text-center">
-              <Button variant="hero" size="lg">
-                Получить консультацию
-                <ArrowRight className="w-5 h-5 ml-2" />
+              <Button variant="hero" size="lg" asChild>
+                <Link to="/contacts">
+                  Получить консультацию
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Link>
               </Button>
             </div>
           </div>

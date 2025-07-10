@@ -55,8 +55,8 @@ const Header = () => {
               <Phone className="w-4 h-4" />
               <span>+7(926) 265-44-29</span>
             </a>
-            <Button variant="default" size="sm">
-              Оставить заявку
+            <Button variant="default" size="sm" asChild>
+              <Link to="/contacts">Оставить заявку</Link>
             </Button>
           </div>
 
@@ -97,8 +97,8 @@ const Header = () => {
                   <Phone className="w-4 h-4" />
                   <span>+7(926) 265-44-29</span>
                 </a>
-                <Button variant="default" size="sm" className="w-full">
-                  Оставить заявку
+                <Button variant="default" size="sm" className="w-full" asChild>
+                  <Link to="/contacts">Оставить заявку</Link>
                 </Button>
               </div>
             </nav>

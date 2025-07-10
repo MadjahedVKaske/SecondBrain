@@ -1,6 +1,7 @@
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
 import { 
@@ -251,11 +252,11 @@ const Audit = () => {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                      <Button variant="default" size="lg">
-                        Заказать аудит
+                      <Button variant="default" size="lg" asChild>
+                        <Link to="/contacts">Заказать аудит</Link>
                       </Button>
-                      <Button variant="outline" size="lg">
-                        Получить консультацию
+                      <Button variant="outline" size="lg" asChild>
+                        <Link to="/contacts">Получить консультацию</Link>
                       </Button>
                       <Button 
                         variant="ghost" 
@@ -283,8 +284,8 @@ const Audit = () => {
                         Наши эксперты проведут детальный анализ вашей системы 1С 
                         и предоставят подробный отчет с планом оптимизации.
                       </p>
-                      <Button variant="outline">
-                        Заказать полный аудит
+                      <Button variant="outline" asChild>
+                        <Link to="/contacts">Заказать полный аудит</Link>
                       </Button>
                     </div>
                   </div>
