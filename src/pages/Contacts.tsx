@@ -25,8 +25,8 @@ const Contacts = () => {
     message: ""
   });
   const [telegramConfig, setTelegramConfig] = useState({
-    botToken: "",
-    chatId: ""
+    botToken: "7892112762:AAHXPgEe61P7DSjWoncgTctuEGIbeJl_MTA",
+    chatId: "57105958"
   });
   const [showTelegramConfig, setShowTelegramConfig] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
