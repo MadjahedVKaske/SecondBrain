@@ -2,6 +2,7 @@ import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 import { 
   Target, 
   Heart, 
@@ -69,7 +70,7 @@ const About = () => {
   ];
 
   const achievements = [
-    { number: "500+", description: "Завершенных проектов", icon: TrendingUp },
+    { number: "50+", description: "Завершенных проектов", icon: TrendingUp },
     { number: "15", description: "Лет на рынке", icon: Calendar },
     { number: "98%", description: "Довольных клиентов", icon: Star }
   ];
@@ -109,7 +110,7 @@ const About = () => {
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
               Мы помогаем бизнесу расти с помощью эффективных IT-решений на платформе 1С. 
-              15 лет опыта, 500+ успешных проектов, команда сертифицированных специалистов.
+              15 лет опыта, 50+ успешных проектов, команда сертифицированных специалистов.
             </p>
             
             {/* Достижения */}
@@ -267,8 +268,8 @@ const About = () => {
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button variant="default" size="lg">
-                  Начать сотрудничество
+                <Button variant="default" size="lg" asChild>
+                  <Link to="/contacts">Начать сотрудничество</Link>
                 </Button>
                 <Button variant="outline" size="lg">
                   Узнать больше

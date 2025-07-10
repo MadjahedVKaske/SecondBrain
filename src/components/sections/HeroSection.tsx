@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 const HeroSection = () => {
   const benefits = [
     "15+ лет опыта работы с 1С",
-    "500+ успешных проектов",
+    "50+ успешных проектов",
     "Сертифицированные специалисты"
   ];
 
