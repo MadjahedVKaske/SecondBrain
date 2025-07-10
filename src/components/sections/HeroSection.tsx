@@ -93,8 +93,8 @@ const HeroSection = () => {
                   </div>
                 </div>
 
-                <Button variant="default" className="w-full">
-                  Заказать диагностику
+                <Button variant="default" className="w-full" asChild>
+                  <Link to="/contacts">Заказать диагностику</Link>
                 </Button>
               </div>
             </div>
