@@ -14,6 +14,7 @@ const Header = () => {
     { href: "/database-help", label: "Какая база?" },
     { href: "/audit", label: "Аудит 1С" },
     { href: "/cases", label: "Кейсы" },
+    { href: "/anti-crisis-analysis", label: "Антикризисный анализ" },
     { href: "/about", label: "О компании" },
     { href: "/contacts", label: "Контакты" },
   ];
