@@ -1,7 +1,7 @@
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Users, TrendingUp, Shield, FileSearch, Calendar, MessageSquare, ClipboardCheck } from "lucide-react";
+import { CheckCircle, Users, TrendingUp, Shield, FileSearch, Calendar, MessageSquare, ClipboardCheck, Star, Award, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const AntiCrisisAnalysis = () => {
@@ -160,6 +160,134 @@ const AntiCrisisAnalysis = () => {
                     <p className="text-muted-foreground">
                       Конфиденциальность ваших данных — наш главный приоритет. Мы гарантируем сохранение ваших данных и подписываем договор, защищающий вашу информацию.
                     </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Expert Section */}
+      <section className="py-20 bg-background">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
+              Ваш эксперт
+            </h2>
+            
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="grid lg:grid-cols-3 gap-0">
+                  {/* Expert Photo Placeholder */}
+                  <div className="bg-gradient-primary p-8 lg:p-12 flex items-center justify-center">
+                    <div className="text-center text-primary-foreground">
+                      <div className="w-32 h-32 mx-auto mb-6 bg-white/20 rounded-full flex items-center justify-center">
+                        <span className="text-4xl font-bold">ОА</span>
+                      </div>
+                      <h3 className="text-2xl font-bold mb-2">Ольга Аксюба</h3>
+                      <p className="text-lg opacity-90">Эксперт по антикризисному анализу</p>
+                    </div>
+                  </div>
+                  
+                  {/* Expert Description */}
+                  <div className="lg:col-span-2 p-8 lg:p-12">
+                    <div className="mb-8">
+                      <h4 className="text-xl font-semibold mb-4 flex items-center">
+                        <Award className="w-5 h-5 text-primary mr-2" />
+                        Опыт и компетенции
+                      </h4>
+                      <p className="text-muted-foreground leading-relaxed">
+                        У меня большой опыт работы - более 20 лет в узнаваемых международных компаниях 
+                        (Eventim, FIFA) от стартовой позиции сотрудника контакт центра до операционного директора.
+                      </p>
+                    </div>
+
+                    <div className="mb-8">
+                      <h4 className="text-xl font-semibold mb-4 flex items-center">
+                        <Star className="w-5 h-5 text-primary mr-2" />
+                        Крупные проекты
+                      </h4>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Я работала с такими крупными проектами как Олимпийские игры в Сочи 2014, 
+                        Авиасалон МАКС 2015, 2017, Чемпионат мира по хоккею 2016, Чемпионат мира по фигурному катанию, 
+                        Формула–1 2016, 2017, 2018, FIFA Arab Cup 2021, Чемпионат мира по футболу FIFA 2022, 
+                        Чемпионат мира по футболу среди женщин FIFA 2023, новогодние мероприятия, фестивали, 
+                        выставочные проекты – полный цикл сопровождения ключевых клиентов.
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xl font-semibold mb-6 flex items-center">
+                        <CheckCircle className="w-5 h-5 text-primary mr-2" />
+                        Мои сильные стороны
+                      </h4>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-4">
+                          <div className="flex items-start space-x-3">
+                            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium">Проектный менеджмент</p>
+                              <p className="text-sm text-muted-foreground">
+                                Соберу проект, проанализирую ресурсы, осуществлю трэкинг задач и сроков
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3">
+                            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium">Оптимизация бизнес-процессов</p>
+                              <p className="text-sm text-muted-foreground">
+                                Быстро нахожу узкие места
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3">
+                            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium">Управление командой</p>
+                              <p className="text-sm text-muted-foreground">
+                                Опыт построения работы 5 операционных отделов, 40+ человек
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-start space-x-3">
+                            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium">Интеграционные проекты</p>
+                              <p className="text-sm text-muted-foreground">
+                                Вела более 6ти крупных проектов по интеграции различных софтов
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3">
+                            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium">Международный опыт</p>
+                              <p className="text-sm text-muted-foreground">
+                                20+ лет в европейском холдинге - знаю лучшие практики международного менеджмента
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start space-x-3">
+                            <Globe className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium">Английский язык</p>
+                              <p className="text-sm text-muted-foreground">
+                                Свободное владение
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
