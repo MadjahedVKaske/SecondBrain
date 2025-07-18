@@ -17,21 +17,22 @@ const Header = () => {
 
   const navigationItems = [
     { href: "/", label: "Главная" },
-    { href: "/services", label: "Услуги" },
+    { href: "/software", label: "Продажа ПО" },
     { href: "/marking", label: "Маркировка" },
     { href: "/cases", label: "Кейсы" },
     { href: "/about", label: "О компании" },
     { href: "/contacts", label: "Контакты" },
   ];
 
-  const consultingItems = [
+  const servicesItems = [
+    { href: "/services", label: "Общие услуги" },
     { href: "/database-help", label: "Какая база?" },
     { href: "/audit", label: "Аудит 1С" },
     { href: "/anti-crisis-analysis", label: "Антикризисный анализ" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
-  const isConsultingActive = () => consultingItems.some(item => isActive(item.href));
+  const isServicesActive = () => servicesItems.some(item => isActive(item.href));
 
   return (
     <header className="bg-background/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
@@ -64,36 +65,20 @@ const Header = () => {
                 </NavigationMenuLink>
               </NavigationMenuItem>
 
-              {/* Услуги */}
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild>
-                  <Link
-                    to="/services"
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                      isActive("/services")
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    Услуги
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
-              
-              {/* Consulting Submenu */}
+              {/* Services Submenu */}
               <NavigationMenuItem>
                 <NavigationMenuTrigger 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                    isConsultingActive()
+                    isServicesActive()
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   }`}
                 >
-                  Консультации
+                  Услуги
                 </NavigationMenuTrigger>
                 <NavigationMenuContent>
                   <div className="w-56 p-3 bg-background border border-border rounded-md shadow-lg">
-                    {consultingItems.map((item) => (
+                    {servicesItems.map((item) => (
                       <NavigationMenuLink key={item.href} asChild>
                         <Link
                           to={item.href}
@@ -112,7 +97,7 @@ const Header = () => {
               </NavigationMenuItem>
 
               {/* Остальные пункты меню */}
-              {navigationItems.slice(2).map((item) => (
+              {navigationItems.slice(1).map((item) => (
                 <NavigationMenuItem key={item.href}>
                   <NavigationMenuLink asChild>
                     <Link
@@ -169,25 +154,12 @@ const Header = () => {
               >
                 Главная
               </Link>
-
-              {/* Услуги */}
-              <Link
-                to="/services"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  isActive("/services")
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                }`}
-              >
-                Услуги
-              </Link>
               
-              {/* Mobile Consulting Section */}
+              {/* Mobile Services Section */}
               <div className="px-4 py-2">
-                <div className="text-sm font-medium text-foreground mb-2">Консультации</div>
+                <div className="text-sm font-medium text-foreground mb-2">Услуги</div>
                 <div className="pl-4 space-y-1">
-                  {consultingItems.map((item) => (
+                  {servicesItems.map((item) => (
                     <Link
                       key={item.href}
                       to={item.href}
@@ -205,7 +177,7 @@ const Header = () => {
               </div>
 
               {/* Остальные пункты меню */}
-              {navigationItems.slice(2).map((item) => (
+              {navigationItems.slice(1).map((item) => (
                 <Link
                   key={item.href}
                   to={item.href}
