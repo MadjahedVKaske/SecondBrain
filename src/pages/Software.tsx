@@ -484,6 +484,72 @@ const Software = () => {
                     </ul>
                   </div>
 
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Тарифные пакеты:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {/* Пакет Старт */}
+                      <div className="border rounded-lg p-4">
+                        <h5 className="font-medium mb-2">Пакет «Старт»</h5>
+                        <div className="text-sm text-muted-foreground mb-2">100 документов/год • 15,6 ₽/док.</div>
+                        <div className="text-2xl font-bold mb-3">1 560 ₽</div>
+                        <div className="text-sm mb-3">
+                          <div className="font-medium mb-1">Кому подойдет:</div>
+                          <ul className="space-y-1">
+                            <li>• Разовые доставки</li>
+                            <li>• Тестирование</li>
+                          </ul>
+                        </div>
+                        <Button size="sm" variant="outline" className="w-full">Купить</Button>
+                      </div>
+
+                      {/* Пакет Базовый */}
+                      <div className="border rounded-lg p-4 relative bg-primary text-primary-foreground">
+                        <div className="absolute -top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs">ХИТ</div>
+                        <h5 className="font-medium mb-2">Пакет «Базовый»</h5>
+                        <div className="text-sm opacity-80 mb-2">1 000 документов/год • 9,1 ₽/док.</div>
+                        <div className="text-2xl font-bold mb-3">9 100 ₽</div>
+                        <div className="text-sm mb-3">
+                          <div className="font-medium mb-1">Кому подойдет:</div>
+                          <ul className="space-y-1">
+                            <li>• Малый бизнес</li>
+                            <li>• Старт автоматизации</li>
+                          </ul>
+                        </div>
+                        <Button size="sm" variant="secondary" className="w-full">Купить</Button>
+                      </div>
+
+                      {/* Пакет Оптима */}
+                      <div className="border rounded-lg p-4">
+                        <h5 className="font-medium mb-2">Пакет «Оптима»</h5>
+                        <div className="text-sm text-muted-foreground mb-2">5 000 документов/год • 6,5 ₽/док.</div>
+                        <div className="text-2xl font-bold mb-3">32 500 ₽</div>
+                        <div className="text-sm mb-3">
+                          <div className="font-medium mb-1">Кому подойдет:</div>
+                          <ul className="space-y-1">
+                            <li>• Небольшие сети</li>
+                            <li>• Рост заказов</li>
+                          </ul>
+                        </div>
+                        <Button size="sm" variant="outline" className="w-full">Купить</Button>
+                      </div>
+
+                      {/* Пакет Проф */}
+                      <div className="border rounded-lg p-4">
+                        <h5 className="font-medium mb-2">Пакет «Проф»</h5>
+                        <div className="text-sm text-muted-foreground mb-2">30 000 документов/год • 3,9 ₽/док.</div>
+                        <div className="text-2xl font-bold mb-3">117 000 ₽</div>
+                        <div className="text-sm mb-3">
+                          <div className="font-medium mb-1">Кому подойдет:</div>
+                          <ul className="space-y-1">
+                            <li>• Устойчивый поток</li>
+                            <li>• B2C сегмент</li>
+                          </ul>
+                        </div>
+                        <Button size="sm" variant="outline" className="w-full">Купить</Button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex gap-3">
                     <Button size="sm">
                       Скачать DM.Прайсчекер
