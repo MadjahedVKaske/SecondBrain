@@ -434,6 +434,67 @@ const Software = () => {
                 </div>
               </div>
 
+              {/* DM.Прайсчекер */}
+              <Card className="border">
+                <CardHeader>
+                  <CardTitle className="text-xl">DM.Прайсчекер</CardTitle>
+                  <p className="text-muted-foreground">
+                    Для микрокиосков и прайсчекеров
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm">
+                    Программное обеспечение позволяет получать актуальные сведения о товаре при сканировании штрихкода
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 border rounded-lg">
+                      <h4 className="font-medium mb-2">Торговые залы</h4>
+                      <p className="text-sm text-muted-foreground">Актуальная информация о ценах и маркировке товара</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <h4 className="font-medium mb-2">Продуктовый ритейл</h4>
+                      <p className="text-sm text-muted-foreground">Информация о продукции, повышение лояльности покупателей</p>
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <h4 className="font-medium mb-2">Розница</h4>
+                      <p className="text-sm text-muted-foreground">Реклама, акции, изображение и описание товара</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Ключевые возможности:</h4>
+                    <ul className="text-sm space-y-1">
+                      <li className="flex items-start space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
+                        <span>Сканирование штрихкодов и получение информации о товаре</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
+                        <span>Отображение актуальных цен и акций</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
+                        <span>Рекламные материалы и промо-контент</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
+                        <span>Простая интеграция с существующими системами</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button size="sm">
+                      Скачать DM.Прайсчекер
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      Подобрать решение
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="text-center">
                 <Button size="lg" className="mr-4">
                   Получить коммерческое предложение
