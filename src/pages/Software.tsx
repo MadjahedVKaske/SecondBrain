@@ -168,6 +168,165 @@ const Software = () => {
           </CardContent>
         </Card>
 
+        {/* Pricing Section */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Стоимость программного обеспечения</CardTitle>
+            <CardDescription>
+              Актуальные цены на лицензии DataMobile и специализированные решения
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-8">
+              {/* DataMobile Base Versions */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Основные версии DataMobile</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card className="border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Стандарт</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-primary">936 ₽</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">Артикул: 119000</p>
+                      <p className="text-sm">Минимальный функционал</p>
+                      <Badge variant="secondary" className="mt-2">Офлайн-режим</Badge>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Стандарт Pro</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-primary">1 716 ₽</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">Артикул: 119100</p>
+                      <p className="text-sm">Расширенная версия</p>
+                      <Badge variant="secondary" className="mt-2">Офлайн-режим</Badge>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Online Lite</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-primary">2 496 ₽</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">Артикул: 119200</p>
+                      <p className="text-sm">Базовый онлайн</p>
+                      <Badge variant="secondary" className="mt-2">Онлайн-режим</Badge>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">Online</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-primary">3 120 ₽</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">Артикул: 119300</p>
+                      <p className="text-sm">Расширенный функционал</p>
+                      <Badge variant="secondary" className="mt-2">Онлайн-режим</Badge>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="mt-4 p-4 bg-muted rounded-lg">
+                  <h4 className="font-semibold mb-2">DataMobile LifeTime версии</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex justify-between items-center">
+                      <span>DataMobile Стандарт - LifeTime</span>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-primary">6 300 ₽</span>
+                        <p className="text-xs text-muted-foreground">Артикул: 119004</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Specialized Solutions */}
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Специализированные решения</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">DM.Invent</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-primary">2 700 ₽</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">Артикул: 119600</p>
+                      <p className="text-sm">Решение для инвентаризации основных средств</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">DM.ТОИР</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-primary">2 925 ₽</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">Артикул: 119650</p>
+                      <p className="text-sm">Для автоматизации работы сервисных служб</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* RFID Modules */}
+                <div className="mt-6">
+                  <h4 className="font-semibold mb-3">RFID модули</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="font-medium">Модуль RFID для DM.Invent</h5>
+                        <span className="text-lg font-bold text-primary">5 400 ₽</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Артикул: 120000</p>
+                    </div>
+
+                    <div className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="font-medium">Модуль RFID для DM.ТОИР</h5>
+                        <span className="text-lg font-bold text-primary">5 925 ₽</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Артикул: 120800</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Subscription */}
+                <div className="mt-6 p-4 bg-muted rounded-lg">
+                  <h4 className="font-semibold mb-2">Дополнительные услуги</h4>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="font-medium">Подписка на обновления ПО DM.Основные средства</span>
+                      <p className="text-sm text-muted-foreground">для версий LifeTime</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-primary">7 080 ₽</span>
+                      <p className="text-xs text-muted-foreground">Артикул: 120600</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* License Options */}
         <Card className="mb-8">
           <CardHeader>
