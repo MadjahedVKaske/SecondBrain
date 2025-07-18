@@ -529,6 +529,53 @@ const Software = () => {
                     </ul>
                   </div>
 
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Тарифные планы:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* 1 месяц */}
+                      <div className="border rounded-lg p-4">
+                        <h5 className="font-medium mb-2">DM.Прайсчекер</h5>
+                        <div className="text-sm text-muted-foreground mb-2">Подписка на 1 месяц</div>
+                        <div className="text-2xl font-bold mb-1">2 100 ₽</div>
+                        <div className="text-sm text-muted-foreground mb-3">2 100 ₽/месяц</div>
+                        <div className="text-sm space-y-1 mb-4">
+                          <div>✓ Считывание штрихкода</div>
+                          <div>✓ Показ актуальной информации о товарах</div>
+                          <div>✓ Показ рекламных или акционных роликов</div>
+                        </div>
+                        <Button size="sm" variant="outline" className="w-full">Оформить подписку</Button>
+                      </div>
+
+                      {/* 6 месяцев */}
+                      <div className="border rounded-lg p-4">
+                        <h5 className="font-medium mb-2">DM.Прайсчекер</h5>
+                        <div className="text-sm text-muted-foreground mb-2">Подписка на 6 месяцев</div>
+                        <div className="text-2xl font-bold mb-1">6 150 ₽</div>
+                        <div className="text-sm text-muted-foreground mb-3">1 025 ₽/месяц</div>
+                        <div className="text-sm space-y-1 mb-4">
+                          <div>✓ Считывание штрихкода</div>
+                          <div>✓ Показ актуальной информации о товарах</div>
+                          <div>✓ Показ рекламных или акционных роликов</div>
+                        </div>
+                        <Button size="sm" variant="outline" className="w-full">Оформить подписку</Button>
+                      </div>
+
+                      {/* 12 месяцев - популярный */}
+                      <div className="border rounded-lg p-4 bg-primary text-primary-foreground">
+                        <h5 className="font-medium mb-2">DM.Прайсчекер</h5>
+                        <div className="text-sm opacity-80 mb-2">Подписка на 12 месяцев</div>
+                        <div className="text-2xl font-bold mb-1">8 850 ₽</div>
+                        <div className="text-sm opacity-80 mb-3">738 ₽/месяц</div>
+                        <div className="text-sm space-y-1 mb-4">
+                          <div>✓ Считывание штрихкода</div>
+                          <div>✓ Показ актуальной информации о товарах</div>
+                          <div>✓ Показ рекламных или акционных роликов</div>
+                        </div>
+                        <Button size="sm" variant="secondary" className="w-full">Оформить подписку</Button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex gap-3">
                     <Button size="sm">
                       Скачать DM.Прайсчекер
