@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Phone } from "lucide-react";
+import { Menu, X, Phone, ChevronDown } from "lucide-react";
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "@/components/ui/navigation-menu";
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -11,15 +19,19 @@ const Header = () => {
     { href: "/", label: "Главная" },
     { href: "/services", label: "Услуги" },
     { href: "/marking", label: "Маркировка" },
-    { href: "/database-help", label: "Какая база?" },
-    { href: "/audit", label: "Аудит 1С" },
     { href: "/cases", label: "Кейсы" },
-    { href: "/anti-crisis-analysis", label: "Антикризисный анализ" },
     { href: "/about", label: "О компании" },
     { href: "/contacts", label: "Контакты" },
   ];
 
+  const consultingItems = [
+    { href: "/database-help", label: "Какая база?" },
+    { href: "/audit", label: "Аудит 1С" },
+    { href: "/anti-crisis-analysis", label: "Антикризисный анализ" },
+  ];
+
   const isActive = (path: string) => location.pathname === path;
+  const isConsultingActive = () => consultingItems.some(item => isActive(item.href));
 
   return (
     <header className="bg-background/95 backdrop-blur-sm border-b border-border sticky top-0 z-50">
@@ -34,21 +46,57 @@ const Header = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-1">
-            {navigationItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                  isActive(item.href)
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <NavigationMenu className="hidden lg:flex">
+            <NavigationMenuList className="flex items-center space-x-1">
+              {navigationItems.map((item) => (
+                <NavigationMenuItem key={item.href}>
+                  <NavigationMenuLink asChild>
+                    <Link
+                      to={item.href}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                        isActive(item.href)
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              ))}
+              
+              {/* Consulting Submenu */}
+              <NavigationMenuItem>
+                <NavigationMenuTrigger 
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                    isConsultingActive()
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  Консультации
+                </NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <div className="w-48 p-2">
+                    {consultingItems.map((item) => (
+                      <NavigationMenuLink key={item.href} asChild>
+                        <Link
+                          to={item.href}
+                          className={`block px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                            isActive(item.href)
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          }`}
+                        >
+                          {item.label}
+                        </Link>
+                      </NavigationMenuLink>
+                    ))}
+                  </div>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
 
           {/* Contact Button */}
           <div className="hidden lg:flex items-center space-x-4">
@@ -90,6 +138,27 @@ const Header = () => {
                   {item.label}
                 </Link>
               ))}
+              
+              {/* Mobile Consulting Section */}
+              <div className="px-4 py-2">
+                <div className="text-sm font-medium text-foreground mb-2">Консультации</div>
+                <div className="pl-4 space-y-1">
+                  {consultingItems.map((item) => (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`block px-2 py-1 rounded-md text-sm transition-all ${
+                        isActive(item.href)
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
               <div className="px-4 py-2 space-y-2">
                 <a
                   href="tel:+79262654429"
