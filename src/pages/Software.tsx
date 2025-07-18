@@ -394,12 +394,52 @@ const Software = () => {
                 </div>
               </div>
 
+              {/* Pricing for DM.Доставка Pro */}
+              <div className="border rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-4">Стоимость лицензии</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="border">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg">DM.Доставка Pro</CardTitle>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xl font-medium text-muted-foreground">По запросу</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">Индивидуальная стоимость</p>
+                      <p className="text-sm">Для автоматизации курьерских служб</p>
+                      <Badge variant="secondary" className="mt-2">Полный функционал</Badge>
+                    </CardContent>
+                  </Card>
+                  
+                  <div className="flex flex-col justify-center space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Стоимость лицензии зависит от количества пользователей и функциональных требований
+                    </p>
+                    <ul className="text-sm space-y-1">
+                      <li className="flex items-start space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
+                        <span>Работа с маркированными товарами</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
+                        <span>Множественные способы оплаты</span>
+                      </li>
+                      <li className="flex items-start space-x-2">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
+                        <span>Навигация и построение маршрутов</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
               <div className="text-center">
                 <Button size="lg" className="mr-4">
-                  Получить консультацию
+                  Получить коммерческое предложение
                 </Button>
                 <Button variant="outline" size="lg">
-                  Подобрать решение
+                  Попробовать бесплатно
                 </Button>
               </div>
             </div>
