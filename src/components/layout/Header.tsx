@@ -92,7 +92,7 @@ const Header = () => {
                   Консультации
                 </NavigationMenuTrigger>
                 <NavigationMenuContent>
-                  <div className="w-48 p-2">
+                  <div className="w-48 p-2 bg-background border border-border rounded-md shadow-lg">
                     {consultingItems.map((item) => (
                       <NavigationMenuLink key={item.href} asChild>
                         <Link
