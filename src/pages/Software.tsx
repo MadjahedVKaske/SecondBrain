@@ -327,6 +327,85 @@ const Software = () => {
           </CardContent>
         </Card>
 
+        {/* DataMobile Delivery Pro Section */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>DM.Доставка Pro</CardTitle>
+            <CardDescription>
+              Программное обеспечение для автоматизации полного цикла работы службы доставки
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Службам доставки</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Постановка и отслеживание заданий для курьеров
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Торговым компаниям</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Оптимизация маршрута и доставка продукции без задержек
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">Интернет-магазинам</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Автоматизация процессов доставки на всех уровнях
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold mb-4">Ключевые особенности</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <span>Соответствие требованиям ФЗ-54</span>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <span>Совместимость с облачной кассой</span>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <span>Интеграция с платежными сервисами</span>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2"></div>
+                    <span>Поддержка банковских терминалов</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <Button size="lg" className="mr-4">
+                  Получить консультацию
+                </Button>
+                <Button variant="outline" size="lg">
+                  Подобрать решение
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* License Options */}
         <Card className="mb-8">
           <CardHeader>
@@ -346,7 +425,7 @@ const Software = () => {
                 <p className="text-muted-foreground mb-4">
                   Облачный сервис на 1, 6 или 12 месяцев с личным кабинетом для управления лицензиями
                 </p>
-                <Badge variant="outline">Гибкое управление</Badge>
+                <Badge variant="outline">Гибкое управления</Badge>
               </div>
             </div>
           </CardContent>
