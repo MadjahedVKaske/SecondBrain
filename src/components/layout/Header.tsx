@@ -48,22 +48,37 @@ const Header = () => {
           {/* Desktop Navigation */}
           <NavigationMenu className="hidden lg:flex">
             <NavigationMenuList className="flex items-center space-x-1">
-              {navigationItems.map((item) => (
-                <NavigationMenuItem key={item.href}>
-                  <NavigationMenuLink asChild>
-                    <Link
-                      to={item.href}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                        isActive(item.href)
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
-              ))}
+              {/* Главная */}
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link
+                    to="/"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                      isActive("/")
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    Главная
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+
+              {/* Услуги */}
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
+                  <Link
+                    to="/services"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                      isActive("/services")
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    Услуги
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
               
               {/* Consulting Submenu */}
               <NavigationMenuItem>
@@ -95,6 +110,24 @@ const Header = () => {
                   </div>
                 </NavigationMenuContent>
               </NavigationMenuItem>
+
+              {/* Остальные пункты меню */}
+              {navigationItems.slice(2).map((item) => (
+                <NavigationMenuItem key={item.href}>
+                  <NavigationMenuLink asChild>
+                    <Link
+                      to={item.href}
+                      className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                        isActive(item.href)
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              ))}
             </NavigationMenuList>
           </NavigationMenu>
 
@@ -124,20 +157,31 @@ const Header = () => {
         {isMobileMenuOpen && (
           <div className="lg:hidden border-t border-border">
             <nav className="py-4 space-y-2">
-              {navigationItems.map((item) => (
-                <Link
-                  key={item.href}
-                  to={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={`block px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    isActive(item.href)
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {/* Главная */}
+              <Link
+                to="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  isActive("/")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                Главная
+              </Link>
+
+              {/* Услуги */}
+              <Link
+                to="/services"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={`block px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  isActive("/services")
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                }`}
+              >
+                Услуги
+              </Link>
               
               {/* Mobile Consulting Section */}
               <div className="px-4 py-2">
@@ -159,6 +203,22 @@ const Header = () => {
                   ))}
                 </div>
               </div>
+
+              {/* Остальные пункты меню */}
+              {navigationItems.slice(2).map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    isActive(item.href)
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
               <div className="px-4 py-2 space-y-2">
                 <a
                   href="tel:+79262654429"
