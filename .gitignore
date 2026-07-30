@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Yakor agent mock runtime
+yakor-agent/data/
+yakor-agent/node_modules/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
