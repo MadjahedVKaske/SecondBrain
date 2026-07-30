@@ -1,0 +1,5 @@
+RewriteEngine On
+
+# Все запросы внутри /api/ (кроме реальных файлов) -> index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
