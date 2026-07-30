@@ -15,8 +15,9 @@ dist-ssr
 # Yakor agent mock runtime
 yakor-agent/data/
 yakor-agent/node_modules/
-public/api/_data/*
-!public/api/_data/.htaccess
+deploy-pack/config.php
+deploy-pack/task-puteprovod.json
+deploy-pack/cfg-stage/
 
 # Editor directories and files
 .vscode/*

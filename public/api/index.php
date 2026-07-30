@@ -243,6 +243,18 @@ if ($method === 'GET' && yakor_starts_with($restNorm, 'admin/results')) {
     respond_json(['payload' => $results, 'count' => count($results)]);
 }
 
+// Admin credentials (push_token for existing projects)
+if ($method === 'GET' && yakor_starts_with($restNorm, 'admin/credentials')) {
+    require_admin($config);
+    $pushToken = (string)($config['github_token'] ?? '');
+    respond_json([
+        'repo_url' => (string)($config['default_repo_url'] ?? ''),
+        'branch' => (string)($config['default_branch'] ?? 'main'),
+        'push_token' => $pushToken,
+        'has_token' => $pushToken !== '',
+    ]);
+}
+
 // Admin reset
 if ($method === 'POST' && yakor_starts_with($restNorm, 'admin/reset')) {
     require_admin($config);
@@ -345,6 +357,7 @@ if ($method === 'POST' && yakor_starts_with($restNorm, 'tasks/results')) {
 // Projects POST
 if ($method === 'POST' && ($restNorm === 'projects' || $restNorm === 'projects/')) {
     $body = read_json_body();
+    $pushToken = (string)($config['github_token'] ?? '');
     $project = [
         'yakor_id' => $yakorId,
         'project_id' => uuid_v4(),
@@ -362,6 +375,7 @@ if ($method === 'POST' && ($restNorm === 'projects' || $restNorm === 'projects/'
         'repo_url' => $project['repo_url'],
         'branch' => $project['branch'],
         'name' => $project['name'],
+        'push_token' => $pushToken,
     ], 201);
 }
 

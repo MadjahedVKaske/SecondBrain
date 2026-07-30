@@ -1,0 +1,15 @@
+1) Положи task.json (УЖЕ с push_token):
+   C:\Cursor\buro1-insight-hub\deploy-pack\task-puteprovod.json
+   → в C:\Yakor\Проекты\Путепровод\task.json
+
+2) На хостинге обнови api/config.php:
+   Залей deploy-pack\api-config-update.zip в www/buro1.tech
+   и распакуй (перезапишет api/config.php с github_token).
+   Либо вручную скопируй deploy-pack\config.php → api/config.php
+
+3) Пересобери/открой обновлённый Якорь (Module.bsl уже с GitПушРазрешён + авто-remote).
+
+4) В Якоре: обновить список проектов локально, выбрать Путепровод, LongPoll.
+
+5) Задача dump_config_git уже будет/будет кинута с агента.
+   Галка Git-авторизации НЕ нужна, если в task.json есть push_token.
