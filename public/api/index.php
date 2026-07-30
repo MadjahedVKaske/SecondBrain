@@ -21,6 +21,88 @@ function yakor_starts_with(string $haystack, string $needle): bool
     return strpos($haystack, $needle) === 0;
 }
 
+/** Создаёт пустой private GitHub repo. Возвращает clone_url или '' при ошибке. */
+function github_create_empty_repo(string $token, string $repoName, string $description): array
+{
+    $payload = json_encode([
+        'name' => $repoName,
+        'description' => $description,
+        'private' => true,
+        'auto_init' => false,
+        'has_issues' => false,
+        'has_projects' => false,
+        'has_wiki' => false,
+    ]);
+    $headers = [
+        'Authorization: Bearer ' . $token,
+        'Accept: application/vnd.github+json',
+        'Content-Type: application/json',
+        'User-Agent: yakor-agent-php',
+        'X-GitHub-Api-Version: 2022-11-28',
+    ];
+    $raw = '';
+    $code = 0;
+    if (function_exists('curl_init')) {
+        $ch = curl_init('https://api.github.com/user/repos');
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        $raw = (string)curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+    } else {
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => implode("\r\n", $headers),
+                'content' => $payload,
+                'ignore_errors' => true,
+                'timeout' => 60,
+            ],
+        ]);
+        $raw = (string)@file_get_contents('https://api.github.com/user/repos', false, $ctx);
+        if (isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) {
+            $code = (int)$m[1];
+        }
+    }
+    $data = json_decode($raw, true);
+    if (($code === 201 || $code === 200) && is_array($data) && !empty($data['clone_url'])) {
+        return [
+            'ok' => true,
+            'clone_url' => (string)$data['clone_url'],
+            'html_url' => (string)($data['html_url'] ?? ''),
+            'full_name' => (string)($data['full_name'] ?? ''),
+            'http_code' => $code,
+        ];
+    }
+    return [
+        'ok' => false,
+        'clone_url' => '',
+        'html_url' => '',
+        'full_name' => '',
+        'http_code' => $code,
+        'error' => is_array($data) ? (string)($data['message'] ?? $raw) : $raw,
+    ];
+}
+
+function github_safe_repo_name(string $projectId, string $projectName): string
+{
+    $short = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '', $projectId));
+    $short = substr($short, 0, 8);
+    if ($short === '') {
+        $short = bin2hex(random_bytes(4));
+    }
+    $base = strtolower(preg_replace('/[^a-zA-Z0-9._-]+/', '-', $projectName));
+    $base = trim($base, '-._');
+    if ($base === '' || strlen($base) > 20) {
+        $base = 'proj';
+    }
+    // GitHub max 100; держим короче
+    return 'yakor-' . $base . '-' . $short;
+}
+
 $configPath = __DIR__ . '/config.php';
 if (!is_file($configPath)) {
     $configPath = __DIR__ . '/config.sample.php';
@@ -358,14 +440,42 @@ if ($method === 'POST' && yakor_starts_with($restNorm, 'tasks/results')) {
 if ($method === 'POST' && ($restNorm === 'projects' || $restNorm === 'projects/')) {
     $body = read_json_body();
     $pushToken = (string)($config['github_token'] ?? '');
+    $projectId = uuid_v4();
+    $projectName = (string)($body['name'] ?? 'unnamed');
+    $description = (string)($body['description'] ?? '');
+    $repoUrl = (string)($config['default_repo_url'] ?? 'https://github.com/MadjahedVKaske/YakorPushTest.git');
+    $repoHtml = '';
+    $repoCreated = false;
+    $repoError = '';
+
+    // Одна кнопка = своя ПУСТАЯ репа. Иначе non-fast-forward на общий YakorPushTest.
+    if ($pushToken !== '') {
+        $repoName = github_safe_repo_name($projectId, $projectName);
+        $gh = github_create_empty_repo(
+            $pushToken,
+            $repoName,
+            'Yakor project: ' . $projectName . ' (' . $projectId . ')'
+        );
+        if (!empty($gh['ok']) && $gh['clone_url'] !== '') {
+            $repoUrl = $gh['clone_url'];
+            $repoHtml = (string)$gh['html_url'];
+            $repoCreated = true;
+        } else {
+            $repoError = (string)($gh['error'] ?? 'github create failed');
+        }
+    }
+
     $project = [
         'yakor_id' => $yakorId,
-        'project_id' => uuid_v4(),
+        'project_id' => $projectId,
         'db_id' => (string)($body['db_id'] ?? ($_GET['db_id'] ?? '')),
-        'name' => (string)($body['name'] ?? 'unnamed'),
-        'description' => (string)($body['description'] ?? ''),
-        'repo_url' => (string)($config['default_repo_url'] ?? 'https://github.com/MadjahedVKaske/YakorPushTest.git'),
+        'name' => $projectName,
+        'description' => $description,
+        'repo_url' => $repoUrl,
+        'repo_html_url' => $repoHtml,
         'branch' => (string)($config['default_branch'] ?? 'main'),
+        'repo_created' => $repoCreated,
+        'repo_error' => $repoError,
         'created_at' => gmdate('c'),
     ];
     $store['projects'][] = $project;
@@ -373,9 +483,12 @@ if ($method === 'POST' && ($restNorm === 'projects' || $restNorm === 'projects/'
     respond_json([
         'project_id' => $project['project_id'],
         'repo_url' => $project['repo_url'],
+        'repo_html_url' => $repoHtml,
         'branch' => $project['branch'],
         'name' => $project['name'],
         'push_token' => $pushToken,
+        'repo_created' => $repoCreated,
+        'repo_error' => $repoError,
     ], 201);
 }
 
