@@ -1,0 +1,48 @@
+#!/bin/sh
+# Install as root:brain-deploy, mode 0750 at /usr/local/sbin/secondbrain-operator.
+# This intentionally exposes only audited operations to the deploy user.
+set -eu
+
+root=/opt/secondbrain
+action="${1:-}"
+sha="${2:-}"
+
+case "$action" in
+  deploy|rollback)
+    if [ "$#" -ne 2 ] || ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+        echo "usage: secondbrain-operator {deploy|rollback} <40-char-lowercase-sha>" >&2
+        exit 64
+    fi
+    exec /usr/local/lib/secondbrain/deploy-root.sh "$action" "$sha"
+    ;;
+  backup)
+    if [ "$#" -ne 1 ]; then
+        echo "usage: secondbrain-operator backup" >&2
+        exit 64
+    fi
+    exec /usr/bin/docker compose --project-name secondbrain \
+      --env-file "$root/shared/runtime.env" \
+      -f "$root/current/infra/vps/compose.yml" --profile ops run --rm backup
+    ;;
+  initial-import)
+    if [ "$#" -ne 2 ] || ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{64}$'; then
+        echo "usage: secondbrain-operator initial-import <64-char-dump-sha256>" >&2
+        exit 64
+    fi
+    import_dir="$root/shared/import"
+    test "$(stat -c '%U:%G:%a' "$import_dir")" = "root:root:700"
+    test "$(stat -c '%U:%G:%a' "$import_dir/approved.sql.zst")" = "root:root:600"
+    test "$(stat -c '%U:%G:%a' "$import_dir/INITIAL_IMPORT_APPROVED")" = "root:root:600"
+    test "$(cat "$import_dir/INITIAL_IMPORT_APPROVED")" = "$sha"
+    INITIAL_DUMP_SHA256="$sha" INITIAL_IMPORT_CONFIRM=EMPTY_DB_ONLY \
+      /usr/bin/docker compose --project-name secondbrain \
+      --env-file "$root/shared/runtime.env" \
+      -f "$root/current/infra/vps/compose.yml" --profile import run --rm \
+      import-approved /imports/approved.sql.zst
+    rm -f "$import_dir/INITIAL_IMPORT_APPROVED" "$import_dir/approved.sql.zst"
+    ;;
+  *)
+    echo "usage: secondbrain-operator {deploy|rollback|backup|initial-import}" >&2
+    exit 64
+    ;;
+esac

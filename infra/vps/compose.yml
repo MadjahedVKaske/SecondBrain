@@ -1,0 +1,199 @@
+name: secondbrain
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 128
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  proxy:
+    <<: *hardening
+    image: ${CADDY_IMAGE:?record and pin CADDY_IMAGE in runtime.env}
+    restart: unless-stopped
+    environment:
+      BRAIN_DOMAIN: ${BRAIN_DOMAIN:?set BRAIN_DOMAIN in runtime.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in runtime.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    cap_add:
+      - NET_BIND_SERVICE
+    mem_limit: 256m
+    cpus: 0.50
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://app/api/desk/health"]
+      interval: 20s
+      timeout: 8s
+      retries: 5
+      start_period: 45s
+    networks:
+      - edge
+      - egress
+
+  app:
+    <<: *hardening
+    image: ${APP_IMAGE:?deploy wrapper must pin APP_IMAGE to the exact release SHA}
+    build:
+      context: ../..
+      dockerfile: infra/vps/app/Dockerfile
+    restart: unless-stopped
+    environment:
+      SECOND_BRAIN_REQUIRE_SECRETS: "1"
+      SECOND_BRAIN_REQUIRE_MYSQL: "1"
+      DESK_CONFIG_PATH: /run/secondbrain/desk.config.php
+    volumes:
+      # Host config is not part of the image or release archive.
+      - ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/desk.config.php:/run/secondbrain-input/desk.config.php:ro
+      # P4 source files are read-only. Desk-only runtime has no Telegram mounts.
+      - ${BRAIN_PRIVATE_DIR:?set BRAIN_PRIVATE_DIR in runtime.env}/wiki:/var/www/brain/wiki:ro
+      - ${BRAIN_PRIVATE_DIR:?set BRAIN_PRIVATE_DIR in runtime.env}/raw/_inbox:/var/www/brain/raw/_inbox:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /run/secondbrain:uid=33,gid=33,mode=0750
+      - /run/apache2:uid=33,gid=33,mode=0755
+      - /var/lock/apache2:uid=33,gid=33,mode=0755
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    mem_limit: 512m
+    cpus: "1.0"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent --show-error http://127.0.0.1/api/desk/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - edge
+      - db_internal
+
+  db:
+    <<: *hardening
+    image: ${MYSQL_IMAGE:?record and pin MYSQL_IMAGE in runtime.env}
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: desk
+      MYSQL_USER: desk
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_app_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+    secrets:
+      - mysql_app_password
+      - mysql_root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../../public/api/desk/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    mem_limit: 1g
+    cpus: "1.0"
+    pids_limit: 256
+    # MySQL's first-run entrypoint needs filesystem ownership operations on its
+    # data volume; unlike the stateless services it cannot safely drop all caps.
+    cap_drop: []
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -udesk -p\"$$(cat /run/secrets/mysql_app_password)\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - db_internal
+
+  backup:
+    <<: *hardening
+    profiles: ["ops"]
+    build:
+      context: ../..
+      dockerfile: infra/vps/backup/Dockerfile
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: desk
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      BACKUP_AGE_RECIPIENT_FILE: /run/secrets/backup_age_recipient
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+    secrets:
+      - mysql_root_password
+      - backup_age_recipient
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ${BACKUP_DIR:?set BACKUP_DIR in runtime.env}:/backups
+      - ${BRAIN_PRIVATE_DIR:?set BRAIN_PRIVATE_DIR in runtime.env}:/source/brain-private:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    mem_limit: 512m
+    cpus: "1.0"
+    networks:
+      - db_internal
+
+  import-approved:
+    <<: *hardening
+    profiles: ["import"]
+    build:
+      context: ../..
+      dockerfile: infra/vps/import/Dockerfile
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: desk
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      INITIAL_DUMP_SHA256: ${INITIAL_DUMP_SHA256:-}
+      INITIAL_IMPORT_CONFIRM: ${INITIAL_IMPORT_CONFIRM:-}
+    secrets:
+      - mysql_root_password
+    volumes:
+      - ${APPROVED_DUMP_DIR:-/nonexistent}:/imports:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    networks:
+      - db_internal
+
+secrets:
+  mysql_app_password:
+    file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/mysql_app_password
+  mysql_root_password:
+    file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/mysql_root_password
+  backup_age_recipient:
+    file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/backup_age_recipient
+
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  # App and proxy can talk, but neither exposes an application port on the host.
+  edge:
+    internal: true
+  # MySQL is not reachable from the proxy or host.
+  db_internal:
+    internal: true
+  # Only Caddy needs external egress for ACME and clients.
+  egress:

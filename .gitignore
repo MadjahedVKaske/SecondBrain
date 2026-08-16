@@ -53,6 +53,10 @@ public/api/boats/_data/
 tools/buro1-tg-inbox/config.local.json
 docker/.env
 docker/desk-config.local.php
+infra/vps/runtime.env
+infra/vps/secrets/
+infra/vps/backups/
+_tmp/releases/
 
 # Второй мозг: личное не в git
 brain/raw/

@@ -2,23 +2,40 @@
 require_once __DIR__ . '/../api/desk/lib.php';
 $cfg = desk_cfg();
 $view = (string)($cfg['view_token'] ?? '');
-$k = (string)($_GET['k'] ?? ($_COOKIE['desk_k'] ?? ''));
+$production = desk_production_runtime();
+$k = $production ? '' : (string)($_GET['k'] ?? ($_COOKIE['desk_k'] ?? ''));
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $k = (string)($_POST['k'] ?? '');
+}
 $ok = $view !== '' && $view !== 'change-me-view-token' && hash_equals($view, $k);
+if ($production && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $ok = desk_session_ok((string)($_COOKIE['desk_k'] ?? ''));
+}
 if (function_exists('desk_locked') && desk_locked()) {
     $ok = false;
     http_response_code(429);
 }
-if ($ok) {
+if ($ok && (!$production || ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST')) {
     if (function_exists('desk_fail_clear')) {
         desk_fail_clear();
     }
-    setcookie('desk_k', $k, [
-        'expires' => time() + 60 * 60 * 24 * 180,
+    $session = $production ? desk_session_token() : $k;
+    setcookie('desk_k', $session, [
+        'expires' => time() + ($production ? 8 * 60 * 60 : 60 * 60 * 24 * 180),
         'path' => '/',
-        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'secure' => $production || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
         'httponly' => true,
-        'samesite' => 'Lax',
+        'samesite' => $production ? 'Strict' : 'Lax',
     ]);
+    if ($production) {
+        $csrf = bin2hex(random_bytes(32));
+        setcookie('desk_csrf', $csrf, [
+            'expires' => time() + 8 * 60 * 60,
+            'path' => '/', 'secure' => true, 'httponly' => false, 'samesite' => 'Strict',
+        ]);
+        header('Location: /desk/', true, 303);
+        exit;
+    }
     if (isset($_GET['k']) && $_GET['k'] !== '') {
         header('Location: /desk/', true, 302);
         exit;
@@ -49,7 +66,7 @@ header('Cache-Control: no-store');
   <div class="gate">
     <h1>Стол</h1>
     <p class="sub">Нужна ссылка с ключом. Если есть - вставь ключ.</p>
-    <form method="get">
+    <form method="<?php echo $production ? 'post' : 'get'; ?>">
       <input name="k" placeholder="ключ" autocomplete="off" />
       <button type="submit">Открыть</button>
     </form>
@@ -209,9 +226,8 @@ header('Cache-Control: no-store');
     </section>
   </div>
   <div id="drawer" class="drawer" hidden></div>
-  <script>window.DESK_KEY = <?php echo json_encode($k, JSON_UNESCAPED_UNICODE); ?>;</script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+  <script src="vendor/fullcalendar.global.min.js"></script>
+  <script src="vendor/sortable.min.js"></script>
   <script src="app.js?v=<?php echo (int)$ver; ?>"></script>
 <?php endif; ?>
 </body>

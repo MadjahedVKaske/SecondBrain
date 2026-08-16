@@ -1,0 +1,11 @@
+[Unit]
+Description=Second Brain encrypted Docker backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/secondbrain/current/infra/vps
+ExecStart=/usr/local/sbin/secondbrain-operator backup

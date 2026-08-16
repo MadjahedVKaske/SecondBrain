@@ -3,18 +3,44 @@
  * Desk storage: MySQL if db_name set, else JSON file.
  */
 
+function desk_production_runtime(): bool
+{
+    return (string)getenv('SECOND_BRAIN_REQUIRE_MYSQL') === '1';
+}
+
 function desk_cfg(): array
 {
     static $cfg;
     if ($cfg !== null) {
         return $cfg;
     }
-    $path = __DIR__ . '/config.php';
+    $path = trim((string)getenv('DESK_CONFIG_PATH'));
+    if ($path === '') {
+        $path = __DIR__ . '/config.php';
+    }
     if (!is_file($path)) {
+        if (desk_production_runtime()) {
+            throw new RuntimeException('Desk production configuration is unavailable');
+        }
         $path = __DIR__ . '/config.sample.php';
     }
     $raw = require $path;
-    $cfg = is_array($raw) ? $raw : [];
+    if (!is_array($raw)) {
+        if (desk_production_runtime()) {
+            throw new RuntimeException('Desk production configuration is invalid');
+        }
+        $cfg = [];
+        return $cfg;
+    }
+    if (desk_production_runtime()) {
+        foreach (['db_name', 'db_user', 'db_pass', 'view_token', 'admin_token'] as $key) {
+            $value = trim((string)($raw[$key] ?? ''));
+            if ($value === '' || stripos($value, 'change-me') !== false) {
+                throw new RuntimeException('Desk production configuration is incomplete');
+            }
+        }
+    }
+    $cfg = $raw;
     return $cfg;
 }
 
@@ -84,6 +110,9 @@ function desk_pdo(): ?PDO
     $cfg = desk_cfg();
     $name = trim((string)($cfg['db_name'] ?? ''));
     if ($name === '') {
+        if (desk_production_runtime()) {
+            throw new RuntimeException('Desk MySQL configuration is unavailable');
+        }
         $pdo = null;
         return null;
     }
@@ -110,16 +139,23 @@ function desk_pdo(): ?PDO
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]
         );
-        desk_ensure_schema($pdo);
+        if (!desk_production_runtime()) {
+            desk_ensure_schema($pdo);
+        }
     } catch (Throwable $e) {
-        $GLOBALS['desk_db_error'] = $e->getMessage();
+        $GLOBALS['desk_db_error'] = desk_production_runtime() ? 'unavailable' : $e->getMessage();
         $pdo = null;
+        if (desk_production_runtime()) {
+            throw new RuntimeException('Desk MySQL is unavailable');
+        }
         return null;
     }
-    try {
-        desk_maybe_import_json($pdo);
-    } catch (Throwable $e) {
-        $GLOBALS['desk_db_error'] = 'import: ' . $e->getMessage();
+    if (!desk_production_runtime()) {
+        try {
+            desk_maybe_import_json($pdo);
+        } catch (Throwable $e) {
+            $GLOBALS['desk_db_error'] = 'import: ' . $e->getMessage();
+        }
     }
     return $pdo;
 }
@@ -256,6 +292,9 @@ function desk_load_store(): array
     if ($db) {
         return desk_load_from_db($db);
     }
+    if (desk_production_runtime()) {
+        throw new RuntimeException('Desk MySQL is unavailable');
+    }
     return desk_load_json_file();
 }
 
@@ -265,6 +304,9 @@ function desk_save_store(array $store): void
     if ($db) {
         desk_save_to_db($db, $store);
         return;
+    }
+    if (desk_production_runtime()) {
+        throw new RuntimeException('Desk MySQL is unavailable');
     }
     $out = desk_empty_store();
     foreach ($out as $k => $_) {
@@ -1059,6 +1101,9 @@ function desk_bearer(): string
     if ($alt !== '') {
         return $alt;
     }
+    if (desk_production_runtime()) {
+        return '';
+    }
     return (string)($_GET['k'] ?? ($_GET['token'] ?? ''));
 }
 
@@ -1066,6 +1111,27 @@ function desk_is_admin(): bool
 {
     $cfg = desk_cfg();
     return desk_token_ok(desk_bearer(), (string)($cfg['admin_token'] ?? ''));
+}
+
+function desk_session_token(?int $issuedAt = null): string
+{
+    $issuedAt = $issuedAt ?? time();
+    $secret = (string)(desk_cfg()['admin_token'] ?? '');
+    if ($secret === '') {
+        return '';
+    }
+    return $issuedAt . '.' . hash_hmac('sha256', 'desk-session-v2|' . $issuedAt, $secret);
+}
+
+function desk_session_ok(string $cookie): bool
+{
+    if (!preg_match('/^(\d{10})\.([0-9a-f]{64})$/', $cookie, $match)) {
+        return false;
+    }
+    $issuedAt = (int)$match[1];
+    $age = time() - $issuedAt;
+    return $age >= -60 && $age <= 8 * 60 * 60
+        && hash_equals(desk_session_token($issuedAt), $cookie);
 }
 
 function desk_is_view(): bool
@@ -1084,7 +1150,8 @@ function desk_is_view(): bool
         return true;
     }
     $cookie = (string)($_COOKIE['desk_k'] ?? '');
-    if (desk_token_ok($cookie, $need)) {
+    if ((desk_production_runtime() && desk_session_ok($cookie))
+        || (!desk_production_runtime() && desk_token_ok($cookie, $need))) {
         desk_fail_clear();
         return true;
     }
@@ -1092,6 +1159,19 @@ function desk_is_view(): bool
         desk_fail_hit();
     }
     return false;
+}
+
+function desk_csrf_ok(): bool
+{
+    if (!desk_production_runtime()) {
+        return true;
+    }
+    $cookie = (string)($_COOKIE['desk_csrf'] ?? '');
+    $header = (string)($_SERVER['HTTP_X_DESK_CSRF'] ?? '');
+    $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
+    $host = (string)($_SERVER['HTTP_HOST'] ?? '');
+    return $cookie !== '' && hash_equals($cookie, $header)
+        && $origin !== '' && hash_equals('https://' . $host, $origin);
 }
 
 function desk_enqueue_wake(array $payload, string $kind = 'tg'): array
@@ -1847,6 +1927,9 @@ function desk_habit_check(string $id, string $date, bool $on): ?array
 
 function desk_tg_send(string $text): bool
 {
+    if (desk_production_runtime()) {
+        return false;
+    }
     $url = 'http://127.0.0.1/api/tg/admin/send';
     $token = (string)(desk_cfg()['admin_token'] ?? '');
     $body = json_encode(['text' => $text], JSON_UNESCAPED_UNICODE);

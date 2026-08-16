@@ -1,4 +1,3 @@
-const KEY = window.DESK_KEY;
 const API = "/api/desk";
 const STATUS = {
   todo: "к выполнению",
@@ -61,11 +60,11 @@ async function api(path, body, method) {
     opt.headers["Content-Type"] = "application/json";
     opt.body = JSON.stringify(body);
   }
-  let r = await fetch(`${API}/${path}`, opt);
-  if (r.status === 401 && KEY) {
-    const join = path.includes("?") ? "&" : "?";
-    r = await fetch(`${API}/${path}${join}k=${encodeURIComponent(KEY)}`, opt);
+  if (opt.method === "POST" || opt.method === "DELETE") {
+    const csrf = document.cookie.split("; ").find(x => x.startsWith("desk_csrf="))?.split("=")[1] || "";
+    opt.headers["X-Desk-CSRF"] = decodeURIComponent(csrf);
   }
+  const r = await fetch(`${API}/${path}`, opt);
   return r.json();
 }
 

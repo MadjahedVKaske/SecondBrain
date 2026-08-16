@@ -1,0 +1,9 @@
+{
+  "host": "72.56.66.161",
+  "port": 22,
+  "user": "brain-deploy",
+  "key_path": "C:/Users/example/.ssh/secondbrain_deploy_ed25519",
+  "release_signing_key_path": "C:/Users/example/.ssh/secondbrain_release_signing.pem",
+  "host_key_sha256": "SHA256:replace-with-ssh-keygen-fingerprint",
+  "remote_root": "/opt/secondbrain"
+}

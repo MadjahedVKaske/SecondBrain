@@ -42,8 +42,19 @@ if (preg_match('#/api/desk(?:/(.*))?$#', $path, $m)) {
     $rest = isset($m[1]) ? trim($m[1], '/') : '';
 }
 
+if (desk_production_runtime() && in_array($method, ['POST', 'DELETE'], true) && !desk_csrf_ok()) {
+    desk_respond(['error' => 'csrf'], 403);
+}
+
 if ($method === 'GET' && ($rest === '' || $rest === 'health')) {
     $store = desk_load_store();
+    if (desk_production_runtime()) {
+        desk_respond([
+            'ok' => true,
+            'service' => 'desk',
+            'storage' => 'mysql',
+        ]);
+    }
     $out = [
         'ok' => true,
         'service' => 'desk',
@@ -98,12 +109,18 @@ if ($method === 'GET' && ($rest === 'digest' || $rest === 'digest/')) {
 }
 
 if ($method === 'GET' && ($rest === 'cron' || $rest === 'cron/')) {
+    if (desk_production_runtime()) {
+        desk_respond(['error' => 'not_found'], 404);
+    }
     desk_need_admin();
     $sent = desk_run_reminders();
     desk_respond(['ok' => true, 'sent' => $sent]);
 }
 
 if ($method === 'POST' && ($rest === 'cron' || $rest === 'cron/')) {
+    if (desk_production_runtime()) {
+        desk_respond(['error' => 'not_found'], 404);
+    }
     desk_need_admin();
     $sent = desk_run_reminders();
     desk_respond(['ok' => true, 'sent' => $sent]);
