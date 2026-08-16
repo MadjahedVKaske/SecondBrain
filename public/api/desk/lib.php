@@ -158,6 +158,7 @@ function desk_ensure_schema(PDO $pdo): void
         "ALTER TABLE desk_projects ADD COLUMN client_id VARCHAR(64) NOT NULL DEFAULT ''",
         "ALTER TABLE desk_tasks ADD COLUMN blocked_by VARCHAR(36) NOT NULL DEFAULT ''",
         "ALTER TABLE desk_tasks ADD COLUMN parent_task_id VARCHAR(36) NOT NULL DEFAULT ''",
+        "ALTER TABLE desk_tasks ADD COLUMN estimate_hours DECIMAL(8,2) NULL",
     ];
     foreach ($alters as $sql) {
         try {
@@ -555,6 +556,7 @@ function desk_task_from_row(array $r): array
         'due_end' => desk_from_sql_dt($r['due_end'] ?? null, $allDay),
         'all_day' => $allDay,
         'notes' => $r['notes'],
+        'estimate_hours' => isset($r['estimate_hours']) ? (float)$r['estimate_hours'] : null,
         'source_file' => $r['source_file'],
         'wait_contact' => $r['wait_contact'] ?? '',
         'wait_until' => $r['wait_until'] ?? '',
@@ -682,7 +684,7 @@ function desk_save_to_db(PDO $db, array $store): void
         $db->exec('DELETE FROM desk_habits');
         $db->exec('DELETE FROM desk_clients');
         $db->exec('DELETE FROM desk_works');
-        $insT = $db->prepare('INSERT INTO desk_tasks (id,slug,title,area,client,status,due_date,due_start,due_end,all_day,notes,source_file,wait_contact,wait_until,remind_at,remind_sent,project_id,client_id,blocked_by,parent_task_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+        $insT = $db->prepare('INSERT INTO desk_tasks (id,slug,title,area,client,status,due_date,due_start,due_end,all_day,notes,estimate_hours,source_file,wait_contact,wait_until,remind_at,remind_sent,project_id,client_id,blocked_by,parent_task_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
         foreach ($store['tasks'] ?? [] as $t) {
             $allDay = !array_key_exists('all_day', $t) || !empty($t['all_day']);
             $due = (string)($t['due'] ?? '');
@@ -694,6 +696,7 @@ function desk_save_to_db(PDO $db, array $store): void
                 desk_to_sql_dt($t['due_end'] ?? ''),
                 $allDay ? 1 : 0,
                 $t['notes'] ?? '',
+                isset($t['estimate_hours']) && $t['estimate_hours'] !== '' ? (float)$t['estimate_hours'] : null,
                 $t['source_file'] ?? '',
                 $t['wait_contact'] ?? '',
                 $t['wait_until'] ?? '',
@@ -1086,7 +1089,7 @@ function desk_patch_task(string $id, array $patch): ?array
     if ($i === null) {
         return null;
     }
-    $allow = ['title','area','client','status','due','due_end','all_day','notes','wait_contact','wait_until','remind_at','client_id','parent_task_id'];
+    $allow = ['title','area','client','status','due','due_end','all_day','notes','estimate_hours','wait_contact','wait_until','remind_at','client_id','parent_task_id'];
     foreach ($allow as $k) {
         if (array_key_exists($k, $patch)) {
             $store['tasks'][$i][$k] = $patch[$k];
@@ -1110,6 +1113,10 @@ function desk_patch_task(string $id, array $patch): ?array
     if (array_key_exists('all_day', $patch)) {
         $v = $patch['all_day'];
         $store['tasks'][$i]['all_day'] = ($v === true || $v === 1 || $v === '1');
+    }
+    if (array_key_exists('estimate_hours', $patch)) {
+        $rawEstimate = trim((string)$patch['estimate_hours']);
+        $store['tasks'][$i]['estimate_hours'] = $rawEstimate === '' ? null : max(0, (float)$rawEstimate);
     }
     if (array_key_exists('remind_at', $patch)) {
         $store['tasks'][$i]['remind_sent'] = false;
@@ -1165,6 +1172,7 @@ function desk_add_task(array $t): array
         'due_end' => (string)($t['due_end'] ?? ''),
         'all_day' => array_key_exists('all_day', $t) ? (bool)$t['all_day'] : true,
         'notes' => (string)($t['notes'] ?? ''),
+        'estimate_hours' => isset($t['estimate_hours']) && $t['estimate_hours'] !== '' ? max(0, (float)$t['estimate_hours']) : null,
         'source_file' => '',
         'wait_contact' => (string)($t['wait_contact'] ?? ''),
         'wait_until' => (string)($t['wait_until'] ?? ''),

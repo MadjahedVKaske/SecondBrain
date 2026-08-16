@@ -235,6 +235,40 @@ function worksFor(id) {
   return (STATE.works || []).filter(w => w.task_id === id);
 }
 
+function actualHoursForTask(id) {
+  return worksFor(id).reduce((sum, work) => sum + Number(work.hours || 0), 0);
+}
+
+function estimateSuggestion(task) {
+  const ownDirections = taskDirectionIds(task);
+  const candidates = (STATE.tasks || []).filter(peer => peer.id !== task.id && actualHoursForTask(peer.id) > 0);
+  const groups = [
+    {
+      basis: "по направлению",
+      rows: candidates.filter(peer => ownDirections.some(id => taskDirectionIds(peer).includes(id)))
+    },
+    {
+      basis: "по клиенту",
+      rows: task.client_id ? candidates.filter(peer => peer.client_id === task.client_id) : []
+    },
+    {
+      basis: "по категории",
+      rows: candidates.filter(peer => areaKey(peer.area) === areaKey(task.area))
+    },
+    { basis: "по всем работам", rows: candidates }
+  ];
+  const group = groups.find(item => item.rows.length > 0);
+  if (!group) return null;
+  const values = group.rows.map(peer => actualHoursForTask(peer.id)).sort((a, b) => a - b);
+  const middle = Math.floor(values.length / 2);
+  const median = values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2;
+  return {
+    hours: Math.max(0.5, Math.round(median * 2) / 2),
+    count: values.length,
+    basis: group.basis
+  };
+}
+
 function clientTitle(id) {
   if (!id) return "";
   const c = (STATE.clients || []).find(x => x.id === id);
@@ -1103,6 +1137,8 @@ function openTask(id, opts) {
   const comm = commentsFor(id);
   const works = worksFor(id);
   const hours = works.reduce((s, w) => s + Number(w.hours || 0), 0);
+  const estimate = t.estimate_hours == null ? "" : Number(t.estimate_hours);
+  const suggestion = estimateSuggestion(t);
   const workRows = works.map(w => `
     <div class="works-row" data-id="${esc(w.id)}">
       <span>${esc(w.date)} · ${esc(w.hours)} ч${w.note ? " · " + esc(w.note) : ""}</span>
@@ -1198,7 +1234,12 @@ function openTask(id, opts) {
       </details>
 
       <details class="section" data-sec="works">
-        <summary>Работы · ${hours} ч</summary>
+        <summary>Работы · ${hours} ч${estimate !== "" ? ` / оценка ${estimate} ч` : ""}</summary>
+        <div class="estimate-row">
+          <label class="fld"><span>оценка, часы</span><input id="d-estimate" type="number" min="0" step="0.5" value="${esc(estimate)}" placeholder="например, 6"/></label>
+          <button type="button" id="d-est-save">Сохранить оценку</button>
+          ${suggestion ? `<button type="button" class="ghost" id="d-est-suggest" data-hours="${esc(suggestion.hours)}">Предложение ${esc(suggestion.hours)} ч</button><span class="sub">${esc(suggestion.basis)}, задач: ${suggestion.count}</span>` : `<span class="sub">Предложение появится после учёта работ по другим задачам.</span>`}
+        </div>
         <div class="works">${workRows}</div>
         <div class="row">
           <input id="d-wh" type="number" step="0.5" min="0.5" placeholder="часы" style="width:88px"/>
@@ -1741,6 +1782,19 @@ function openTask(id, opts) {
     if (!out || !out.ok) { toast("Ошибка"); return; }
     await refreshDrawer(id, saveDrawerSections());
   };
+
+  document.getElementById("d-est-save").onclick = async () => {
+    const raw = document.getElementById("d-estimate").value;
+    const out = await api(`tasks/${id}`, { estimate_hours: raw === "" ? "" : Number(raw) });
+    if (!out || !out.ok) { toast("Оценка не сохранилась"); return; }
+    await refreshDrawer(id, saveDrawerSections());
+  };
+  const suggestButton = document.getElementById("d-est-suggest");
+  if (suggestButton) {
+    suggestButton.onclick = () => {
+      document.getElementById("d-estimate").value = suggestButton.dataset.hours || "";
+    };
+  }
 
   document.getElementById("d-wadd").onclick = async () => {
     const hoursVal = Number(document.getElementById("d-wh").value);

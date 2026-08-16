@@ -99,6 +99,10 @@ body.drawer-on .wrap { margin-right: min(420px, 46vw); }
   border-bottom: 1px solid var(--line);
 }
 .works-row button { padding: 2px 8px; }
+.estimate-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; margin: 8px 0 12px; }
+.estimate-row .fld { width: 120px; }
+.estimate-row button { height: 38px; }
+.estimate-row .sub { flex: 1 1 180px; padding-bottom: 8px; }
 
 .task {
   display: grid;

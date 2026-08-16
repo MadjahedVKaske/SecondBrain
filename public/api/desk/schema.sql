@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS desk_tasks (
   due_end DATETIME NULL,
   all_day TINYINT(1) NOT NULL DEFAULT 1,
   notes TEXT,
+  estimate_hours DECIMAL(8,2) NULL,
   source_file VARCHAR(255) NOT NULL DEFAULT '',
   wait_contact VARCHAR(190) NOT NULL DEFAULT '',
   wait_until VARCHAR(32) NOT NULL DEFAULT '',
