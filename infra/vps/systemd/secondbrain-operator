@@ -9,7 +9,8 @@ sha="${2:-}"
 
 case "$action" in
   deploy|rollback)
-    if [ "$#" -ne 2 ] || ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+    case "$sha" in ''|*[!0-9a-f]*) valid_sha=0 ;; *) valid_sha=1 ;; esac
+    if [ "$#" -ne 2 ] || [ "$valid_sha" -ne 1 ] || [ "${#sha}" -ne 40 ]; then
         echo "usage: secondbrain-operator {deploy|rollback} <40-char-lowercase-sha>" >&2
         exit 64
     fi
@@ -25,7 +26,8 @@ case "$action" in
       -f "$root/current/infra/vps/compose.yml" --profile ops run --rm backup
     ;;
   initial-import)
-    if [ "$#" -ne 2 ] || ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{64}$'; then
+    case "$sha" in ''|*[!0-9a-f]*) valid_sha=0 ;; *) valid_sha=1 ;; esac
+    if [ "$#" -ne 2 ] || [ "$valid_sha" -ne 1 ] || [ "${#sha}" -ne 64 ]; then
         echo "usage: secondbrain-operator initial-import <64-char-dump-sha256>" >&2
         exit 64
     fi

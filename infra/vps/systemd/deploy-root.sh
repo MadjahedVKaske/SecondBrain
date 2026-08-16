@@ -20,7 +20,8 @@ cleanup_staging() {
 trap cleanup_staging EXIT HUP INT TERM
 
 case "$action" in deploy|rollback) ;; *) exit 64 ;; esac
-printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$' || exit 64
+case "$sha" in ''|*[!0-9a-f]*) exit 64 ;; esac
+[ "${#sha}" -eq 40 ] || exit 64
 
 exec 9>/run/lock/secondbrain-deploy.lock
 flock -n 9 || { echo "secondbrain: another release operation is active" >&2; exit 75; }
