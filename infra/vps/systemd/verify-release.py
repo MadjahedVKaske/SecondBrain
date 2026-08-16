@@ -83,7 +83,7 @@ def main() -> int:
     if not public_key.is_file() or not manifest_path.is_file() or not signature.is_file():
         fail("trusted key, manifest, or signature missing")
     if subprocess.run(
-        ["/usr/bin/openssl", "dgst", "-sha256", "-verify", str(public_key), "-signature", str(signature), str(manifest_path)],
+        ["/usr/bin/openssl", "pkeyutl", "-verify", "-rawin", "-pubin", "-inkey", str(public_key), "-sigfile", str(signature), "-in", str(manifest_path)],
         check=False,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

@@ -94,7 +94,7 @@ def package(ref: str, destination: Path, signing_key: Path | None = None) -> tup
             if not signing_key.is_file():
                 raise RuntimeError("release signing private key is missing")
             subprocess.run(
-                [openssl_binary(), "dgst", "-sha256", "-sign", str(signing_key), "-out", str(release / "release-manifest.sig"), str(release / "release-manifest.json")],
+                [openssl_binary(), "pkeyutl", "-sign", "-rawin", "-inkey", str(signing_key), "-in", str(release / "release-manifest.json"), "-out", str(release / "release-manifest.sig")],
                 check=True,
             )
         destination.parent.mkdir(parents=True, exist_ok=True)
