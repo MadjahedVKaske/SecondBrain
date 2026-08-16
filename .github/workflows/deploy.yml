@@ -19,7 +19,7 @@ jobs:
         script: |
           set -e
           cd /var/www/buro1.tech
-          git remote set-url origin https://github.com/MadjahedVKaske/buro1-insight-hub.git || true
+          git remote set-url origin https://github.com/MadjahedVKaske/SecondBrain.git || true
           git fetch origin main
           git reset --hard origin/main
           npm install
