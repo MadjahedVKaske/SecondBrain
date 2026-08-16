@@ -5,10 +5,6 @@
 return [
     'inbound_token' => 'change-me',
     'bot_token' => '',
-    'chat_ids' => [
-        57105958,
-    ],
-    'pending_usernames' => [
-        'Yarozemna',
-    ],
+    'chat_ids' => [],
+    'pending_usernames' => [],
 ];

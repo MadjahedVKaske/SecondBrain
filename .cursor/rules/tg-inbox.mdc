@@ -7,7 +7,7 @@ alwaysApply: true
 
 Инструмент: `tools/buro1-tg-inbox/`
 
-**Чекай** = проверка VPS (`http://45.10.42.191/api/tg`). Приём 24/7 там. Читать inbox с сервера.
+**Чекай** = проверка VPS TG inbox. Base URL и admin token только из ignored local config; читать inbox с сервера. P6 переводит credential transport на HTTPS-only.
 
 Опрос стола: `desk_watch.py` GET на VPS раз в ~8с. Новое → `AGENT_LOOP_WAKE_DESK`. Reverse SSH нет.
 Автозагрузка Windows поднимает тот же скрипт. Перед стартом вотчера в этой сессии убить чужие процессы `desk_watch`.

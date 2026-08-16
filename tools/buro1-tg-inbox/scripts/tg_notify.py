@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-DEFAULT_CHAT_ID = 57105958
+DEFAULT_CHAT_ID = 0
 LOCAL_CFG = Path(__file__).resolve().parents[1] / "config.local.json"
 
 

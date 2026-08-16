@@ -22,10 +22,10 @@
 
 | Что | Где |
 |-----|-----|
-| Стол (живой) | `http://45.10.42.191/desk/?k=...` |
-| Ключ стола | `_tmp/ssh/desk-url.txt` (не в git, не в TG) |
-| VPS SSH | `_tmp/ssh/id_ed25519_brain` |
-| Бот API | `http://45.10.42.191/api/tg` |
+| Стол (живой) | current endpoint фиксируется P6 baseline; целевой — HTTPS без токена в URL |
+| Ключ стола | prod secret, ротировать в P6; не в Git/URL/TG |
+| VPS SSH | legacy root key в текущей копии отсутствует; целевой deploy-доступ — `.secrets/deploy.json` + pinned host |
+| Бот API | base URL только из ignored config; P6 переводит credential calls на HTTPS-only |
 | Код на сервере | `/var/www/brain/desk/`, `/var/www/brain/api/desk/` |
 | БД | MySQL на VPS, реквизиты в `config.php` на сервере |
 
@@ -36,12 +36,13 @@
 | Файл | Зачем |
 |------|--------|
 | [brain/plans/2026-08-15-dev-prod-local.md](brain/plans/2026-08-15-dev-prod-local.md) | полный план этапов |
+| [docs/D3-P6-D4-RUNBOOK.md](docs/D3-P6-D4-RUNBOOK.md) | безопасный общий runbook: ротация → D3 release → новая VM |
 | [brain/wiki/decisions/2026-08-15-p0-closed-dev-prod.md](brain/wiki/decisions/2026-08-15-p0-closed-dev-prod.md) | P0 закрыт + правило dev/prod |
 | [docker/desk-compose.yml](docker/desk-compose.yml) | Альтернативный Docker runtime PHP + MySQL |
 | [docker/desk-php.Dockerfile](docker/desk-php.Dockerfile) | образ PHP для стола |
-| [docker/desk-config.local.php](docker/desk-config.local.php) | локальный конфиг, ключ `dev-local` |
-| [scripts/desk_pull_prod.py](scripts/desk_pull_prod.py) | prod → local: код стола |
-| [scripts/desk_dump_prod.py](scripts/desk_dump_prod.py) | prod → local: дамп MySQL |
+| `docker/desk-config.local.php` | ignored локальный Docker-конфиг; реальные значения только локально |
+| [scripts/desk_pull_prod.py](scripts/desk_pull_prod.py) | legacy prod → local; root/AutoAddPolicy, до P6 не запускать |
+| [scripts/desk_dump_prod.py](scripts/desk_dump_prod.py) | legacy dump; до P6 заменить pinned/non-root backup harness |
 | `_tmp/desk/desk-mysql-latest.sql` | последний дамп БД (не в git) |
 
 Локальный Desk после D2: `http://127.0.0.1:8080/desk/`. Запуск и открытие: `scripts/desk_local_start.ps1`, `scripts/desk_local_open.ps1`.

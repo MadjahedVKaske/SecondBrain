@@ -8,10 +8,8 @@ return [
     // От BotFather
     'bot_token' => '',
 
-    // Твой numeric id (не @username). Узнать: @userinfobot / @getmyid_bot
-    'allowed_user_ids' => [
-        57105958,
-    ],
+    // Numeric id (не @username). Реальное значение только в ignored config.php.
+    'allowed_user_ids' => [],
 
     // Секрет для заголовка X-Telegram-Bot-Api-Secret-Token при setWebhook
     'webhook_secret' => 'change-me-long-random',

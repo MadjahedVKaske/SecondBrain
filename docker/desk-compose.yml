@@ -1,5 +1,5 @@
 # Локальный стол: docker compose -f docker/desk-compose.yml up -d
-# Стол: http://localhost:8080/desk/?k=dev-local (ключ из config.local.php)
+# Стол: http://127.0.0.1:8080/desk/ (локальный ключ — только в ignored config/cookie, не в URL)
 services:
   desk-db:
     image: mysql:8.0
