@@ -3,8 +3,8 @@
 # It is never executed from an uploaded release tree.
 set -eu
 
-action="${1:?usage: deploy-root.sh {deploy|rollback} <sha>}"
-sha="${2:?usage: deploy-root.sh {deploy|rollback} <sha>}"
+action="${1:?usage: deploy-root.sh deploy-or-rollback sha}"
+sha="${2:?usage: deploy-root.sh deploy-or-rollback sha}"
 root=/opt/secondbrain
 release="$root/releases/$sha"
 archive="$root/incoming/$sha.tar.gz"
