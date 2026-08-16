@@ -24,12 +24,23 @@ powershell -ExecutionPolicy Bypass -File scripts/desk_local_start.ps1
 powershell -ExecutionPolicy Bypass -File scripts/desk_local_open.ps1
 ```
 
-Стол: `http://localhost:8080/desk/?k=dev-local`
+Стол: `http://127.0.0.1:8080/desk/`. Ключ берётся из игнорируемого `.secrets/desk.local.json`; безопасно открыть страницу можно через `scripts/desk_local_open.ps1`.
 
 Конфиг docker: `docker/desk-config.local.php` → монтируется как `api/desk/config.php`.
 
 Локальные PHP/MySQL runtime и реальные конфиги лежат в `.local/` и `.secrets/`, Git их не отслеживает.
 Проверка: `powershell -ExecutionPolicy Bypass -File scripts/desk_local_status.ps1`.
+
+## Дайджест
+
+Вкладка `#digest` показывает утреннюю/вечернюю выжимку из Desk, локальных wiki и календарных событий. CLI использует тот же защищённый API:
+
+```powershell
+python scripts/brain_digest.py --mode morning
+python scripts/brain_digest.py --mode evening --notify
+```
+
+URL и view token читаются из `.secrets/desk.local.json`; TG-реквизиты остаются в отдельных игнорируемых файлах.
 
 ## Синк Tasks (legacy)
 

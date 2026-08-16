@@ -8,7 +8,7 @@ description: >-
 
 # Чекай = VPS
 
-Приём 24/7 на VPS. Полллер `tg-poller` сам ходит в Telegram. Cursor **только читает** уже лежащий inbox.
+Приём 24/7 на VPS. Полллер `tg-poller` сам ходит в Telegram. Агент **только читает** уже лежащий inbox.
 
 База: `http://45.10.42.191/api/tg` (потом `https://brain.buro1.tech/api/tg`).
 
@@ -18,7 +18,7 @@ description: >-
 ## Чекай / забирай / проверь бота
 
 ```bash
-python C:/Users/Евгений/.cursor/skills/buro1-tg-inbox/scripts/tg_inbox.py
+python "C:/Codex/Projects/Second brain/tools/buro1-tg-inbox/scripts/tg_inbox.py"
 ```
 
 1. GET `/admin/inbox` на VPS
@@ -31,7 +31,7 @@ python C:/Users/Евгений/.cursor/skills/buro1-tg-inbox/scripts/tg_inbox.py
 ## Notify после длинных задач
 
 ```bash
-python C:/Users/Евгений/.cursor/skills/buro1-tg-inbox/scripts/tg_notify.py "Готово: кратко что сделано"
+python "C:/Codex/Projects/Second brain/tools/buro1-tg-inbox/scripts/tg_notify.py" "Готово: кратко что сделано"
 ```
 
 После успеха или явного фейла. Не спамить. Без токенов в тексте.
@@ -45,7 +45,7 @@ Header `X-Yakor-Token: <из локального config.local.json или TG_AD
 |---|---|
 | Base | `http://45.10.42.191/api/tg` |
 | Token | `config.local.json` (не в git) или `TG_ADMIN_TOKEN` |
-| Медиа | `~/.cursor/skills/buro1-tg-inbox/_data/tg-media/` |
+| Медиа | `tools/buro1-tg-inbox/_data/tg-media/` |
 | Whisper | `C:/Cursor/skills/transcribe-audio-local` |
 
 Env: `TG_ADMIN_TOKEN`, `TG_BASE_URL`, `TG_MEDIA_DIR`, `WHISPER_SKILL`.
@@ -54,7 +54,7 @@ Env: `TG_ADMIN_TOKEN`, `TG_BASE_URL`, `TG_MEDIA_DIR`, `WHISPER_SKILL`.
 ## Стол
 
 Доска на VPS: `http://45.10.42.191/desk/?k=...` (ключ не в git).
-Синк: `python C:\Cursor\buro1-insight-hub\scripts\desk_sync.py`
+Синк: `python "C:\Codex\Projects\Second brain\scripts\desk_sync.py"`
 
 Не путать с Якорь `/api/yakors/...`.
 
@@ -65,5 +65,5 @@ Env: `TG_ADMIN_TOKEN`, `TG_BASE_URL`, `TG_MEDIA_DIR`, `WHISPER_SKILL`.
 Если wake прилетел - чекай inbox, ответь в бота, делай здесь. Не спрашивай про новый чат. Новую вкладку из бота открыть нельзя.
 
 ```powershell
-python C:\Cursor\buro1-insight-hub\scripts\desk_watch.py
+python "C:\Codex\Projects\Second brain\scripts\desk_watch.py"
 ```

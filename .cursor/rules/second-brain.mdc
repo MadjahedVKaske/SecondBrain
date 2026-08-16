@@ -20,14 +20,14 @@ alwaysApply: true
 5. квитанция в бота: куда легло, не «ок, понял»
 
 ```bash
-python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_inbox.py
-python C:/Cursor/buro1-insight-hub/scripts/brain_ingest_tg.py
-python C:/Cursor/buro1-insight-hub/scripts/brain_receipt.py --raw tg/ID.md --wiki clients/x.md --task "slug" --notify
+python "C:/Codex/Projects/Second brain/tools/buro1-tg-inbox/scripts/tg_inbox.py"
+python "C:/Codex/Projects/Second brain/scripts/brain_ingest_tg.py"
+python "C:/Codex/Projects/Second brain/scripts/brain_receipt.py" --raw tg/ID.md --wiki clients/x.md --task "slug" --notify
 ```
 
 Имена только из INDEX. Что уже отшили - `brain/wiki/declined.md`, не предлагать снова.
 
-После правок wiki: `python C:/Cursor/buro1-insight-hub/scripts/brain_lint.py`
+После правок wiki: `python "C:/Codex/Projects/Second brain/scripts/brain_lint.py"`
 
 ## Утро / вечер
 
@@ -40,8 +40,8 @@ python C:/Cursor/buro1-insight-hub/scripts/brain_receipt.py --raw tg/ID.md --wik
 5. не выдумывать клиентов и дедлайны, которых нет в файлах
 
 ```bash
-python C:/Cursor/buro1-insight-hub/scripts/brain_digest.py --mode morning --notify
-python C:/Cursor/buro1-insight-hub/scripts/brain_digest.py --mode evening --notify
+python "C:/Codex/Projects/Second brain/scripts/brain_digest.py" --mode morning --notify
+python "C:/Codex/Projects/Second brain/scripts/brain_digest.py" --mode evening --notify
 ```
 
 Утро: что делать сегодня. Вечер: что было, что открыто, что в wiki дописать.
@@ -53,7 +53,7 @@ python C:/Cursor/buro1-insight-hub/scripts/brain_digest.py --mode evening --noti
 Если wake прилетел - чекай inbox, не жди «чекай» руками.
 
 ```powershell
-python C:\Cursor\buro1-insight-hub\scripts\desk_watch.py
+python "C:\Codex\Projects\Second brain\scripts\desk_watch.py"
 ```
 
 ## Стол UI

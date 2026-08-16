@@ -86,6 +86,17 @@ if ($method === 'GET' && ($rest === 'state' || $rest === 'state/')) {
     ]);
 }
 
+if ($method === 'GET' && ($rest === 'digest' || $rest === 'digest/')) {
+    desk_need_view();
+    $mode = (string)($_GET['mode'] ?? '');
+    if (!in_array($mode, ['morning', 'evening'], true)) {
+        $mode = (int)(new DateTime('now', new DateTimeZone('Europe/Moscow')))->format('G') < 15
+            ? 'morning'
+            : 'evening';
+    }
+    desk_respond(desk_build_digest($mode));
+}
+
 if ($method === 'GET' && ($rest === 'cron' || $rest === 'cron/')) {
     desk_need_admin();
     $sent = desk_run_reminders();

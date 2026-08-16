@@ -1,8 +1,8 @@
-# Карта проекта buro1-insight-hub
+# Карта проекта SecondBrain
 
 Один вход: ссылки на файлы и что внутри. Обновлять при новых этапах.
 
-**Репо:** `C:\Cursor\buro1-insight-hub`
+**Репо:** `C:\Codex\Projects\Second brain`
 
 ---
 
@@ -37,14 +37,14 @@
 |------|--------|
 | [brain/plans/2026-08-15-dev-prod-local.md](brain/plans/2026-08-15-dev-prod-local.md) | полный план этапов |
 | [brain/wiki/decisions/2026-08-15-p0-closed-dev-prod.md](brain/wiki/decisions/2026-08-15-p0-closed-dev-prod.md) | P0 закрыт + правило dev/prod |
-| [docker/desk-compose.yml](docker/desk-compose.yml) | Docker: PHP + MySQL (этап D2, пока не поднимали) |
+| [docker/desk-compose.yml](docker/desk-compose.yml) | Альтернативный Docker runtime PHP + MySQL |
 | [docker/desk-php.Dockerfile](docker/desk-php.Dockerfile) | образ PHP для стола |
 | [docker/desk-config.local.php](docker/desk-config.local.php) | локальный конфиг, ключ `dev-local` |
 | [scripts/desk_pull_prod.py](scripts/desk_pull_prod.py) | prod → local: код стола |
 | [scripts/desk_dump_prod.py](scripts/desk_dump_prod.py) | prod → local: дамп MySQL |
 | `_tmp/desk/desk-mysql-latest.sql` | последний дамп БД (не в git) |
 
-Локальный URL после D2: `http://localhost:8080/desk/?k=dev-local`
+Локальный Desk после D2: `http://127.0.0.1:8080/desk/`. Запуск и открытие: `scripts/desk_local_start.ps1`, `scripts/desk_local_open.ps1`.
 
 ---
 
@@ -80,10 +80,11 @@
 |------|--------|
 | [public/api/tg/index.php](public/api/tg/index.php) | webhook бота @BuBuBuLu_Bot |
 | [public/api/tg/config.sample.php](public/api/tg/config.sample.php) | шаблон |
-| Скилл inbox | `~/.cursor/skills/buro1-tg-inbox/SKILL.md` |
+| TG inbox tool | `tools/buro1-tg-inbox/` |
 
-Чекай: `python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_inbox.py`  
-Пинг: `python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_notify.py "текст"`
+Чекай: `python tools/buro1-tg-inbox/scripts/tg_inbox.py`
+
+Пинг: `python scripts/tg_notify.py "текст"`
 
 ---
 
@@ -98,7 +99,10 @@
 | [desk_ftp_deploy.py](scripts/desk_ftp_deploy.py) | **не использовать** (REG.RU) |
 | [brain_ingest_tg.py](scripts/brain_ingest_tg.py) | голос → raw + wiki |
 | [brain_receipt.py](scripts/brain_receipt.py) | квитанция в бота после ingest |
-| [brain_digest.py](scripts/brain_digest.py) | утро/вечер дайджест |
+| [brain_digest.py](scripts/brain_digest.py) | локальный утро/вечер дайджест; `--notify` отправляет в TG |
+| [desk_local_start.ps1](scripts/desk_local_start.ps1) | запустить локальные MySQL + PHP |
+| [desk_local_status.ps1](scripts/desk_local_status.ps1) | проверить runtime, API и MySQL |
+| [desk_local_open.ps1](scripts/desk_local_open.ps1) | открыть Desk с локальным ключом из `.secrets/` |
 | [brain_lint.py](scripts/brain_lint.py) | проверка wiki после правок |
 
 ---
@@ -163,7 +167,7 @@
 | P1 | вкладка «Идеи» | нет |
 | P2 | режим клиента | нет |
 | P3 | часы → оценка | нет |
-| P4 | утро/вечер дайджест | нет |
+| P4 | утро/вечер дайджест | реализовано локально: Desk + wiki + календарь, web + TG |
 | P5 | выжимка чатов | нет |
 | P6 | VPS / безопасность | нет |
 

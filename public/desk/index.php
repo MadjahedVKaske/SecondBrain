@@ -67,6 +67,7 @@ header('Cache-Control: no-store');
       <a href="#tasks">Задачи</a>
       <a href="#ideas">Идеи</a>
       <a href="#client">Клиент</a>
+      <a href="#digest">Дайджест</a>
       <a href="#calendar">Календарь</a>
       <a href="#projects">Проекты</a>
       <a href="#goals">Цели</a>
@@ -148,6 +149,19 @@ header('Cache-Control: no-store');
         </div>
       </div>
       <div id="client-mode"></div>
+    </section>
+
+    <section class="page" id="p-digest">
+      <div class="digest-head">
+        <div class="row">
+          <button type="button" id="digest-morning">Утро</button>
+          <button type="button" class="ghost" id="digest-evening">Вечер</button>
+        </div>
+        <button type="button" class="ghost" id="digest-refresh">Обновить</button>
+      </div>
+      <div class="digest-stats" id="digest-stats"></div>
+      <pre class="digest-text" id="digest-text">загрузка…</pre>
+      <p class="sub">Telegram: <code>python scripts/brain_digest.py --mode morning|evening --notify</code></p>
     </section>
 
     <section class="page" id="p-projects">

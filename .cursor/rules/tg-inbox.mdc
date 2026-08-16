@@ -5,7 +5,7 @@ alwaysApply: true
 
 # TG inbox
 
-Скил: `~/.cursor/skills/buro1-tg-inbox/SKILL.md`
+Инструмент: `tools/buro1-tg-inbox/`
 
 **Чекай** = проверка VPS (`http://45.10.42.191/api/tg`). Приём 24/7 там. Читать inbox с сервера.
 
@@ -14,9 +14,9 @@ alwaysApply: true
 
 Если в сессии прилетел `AGENT_LOOP_WAKE_DESK` - чекай inbox с VPS, ответь в бота, делай здесь. Не спрашивай про новый чат.
 
-Запрещено: getUpdates, `admin/pull`, `https://buro1.tech/api/tg`, `--direct`, репо-скрипт как источник правды.
+Запрещено: getUpdates, `admin/pull`, `https://buro1.tech/api/tg`, `--direct`, устаревшие копии инструмента вне этого проекта.
 
 ```bash
-python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_inbox.py
-python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_notify.py "Готово: …"
+python "C:/Codex/Projects/Second brain/tools/buro1-tg-inbox/scripts/tg_inbox.py"
+python "C:/Codex/Projects/Second brain/tools/buro1-tg-inbox/scripts/tg_notify.py" "Готово: …"
 ```

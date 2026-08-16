@@ -539,6 +539,12 @@ details.section .sec-bar > i { display: block; height: 100%; background: var(--p
 .client-item { display: block; width: 100%; padding: 9px 0; text-align: left; color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--line); font-weight: 500; }
 .client-item:hover { color: var(--accent); }
 .client-item small { display: block; color: var(--muted); margin-top: 3px; font-weight: 400; }
+.digest-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.digest-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.digest-stats > div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.digest-stats b { display: block; font-size: 1.25rem; }
+.digest-stats span { color: var(--muted); font-size: .72rem; }
+.digest-text { margin: 0; padding: 18px; min-height: 220px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--text); font: inherit; line-height: 1.65; }
 .proj-banner {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
   background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
@@ -644,5 +650,6 @@ details.group-done > summary.group-head .group-title {
   .client-mode-head { align-items: stretch; flex-direction: column; }
   .client-mode-head .fld { min-width: 0; width: 100%; }
   .client-mode-grid { grid-template-columns: 1fr; }
+  .digest-stats { grid-template-columns: 1fr 1fr; }
   body.drawer-on .wrap { margin-right: 0; }
 }

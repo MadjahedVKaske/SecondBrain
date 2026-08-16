@@ -23,6 +23,7 @@ let AREA_FILTER = localStorage.getItem("desk_area") || "все";
 let CLIENT_FILTER = localStorage.getItem("desk_client") || "";
 let PROJECT_FILTER = localStorage.getItem("desk_project") || "";
 let SHOW_DONE = localStorage.getItem("desk_show_done") !== "0";
+let DIGEST_MODE = localStorage.getItem("desk_digest_mode") || "morning";
 
 const AREA_COLOR = {
   работа: "#3d8fd1",
@@ -41,7 +42,7 @@ function areaKey(a) {
 }
 
 function esc(s) {
-  return String(s || "").replace(/[&<>"']/g, c => ({
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
 }
@@ -62,7 +63,8 @@ async function api(path, body, method) {
   }
   let r = await fetch(`${API}/${path}`, opt);
   if (r.status === 401 && KEY) {
-    r = await fetch(`${API}/${path}?k=${encodeURIComponent(KEY)}`, opt);
+    const join = path.includes("?") ? "&" : "?";
+    r = await fetch(`${API}/${path}${join}k=${encodeURIComponent(KEY)}`, opt);
   }
   return r.json();
 }
@@ -210,6 +212,31 @@ function page() {
   document.querySelectorAll("nav.tabs a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + h));
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("on", p.id === "p-" + h));
   if (h === "calendar" && CAL) CAL.updateSize();
+  if (h === "digest") renderDigest();
+}
+
+async function renderDigest(mode) {
+  if (mode) DIGEST_MODE = mode;
+  localStorage.setItem("desk_digest_mode", DIGEST_MODE);
+  const text = document.getElementById("digest-text");
+  const stats = document.getElementById("digest-stats");
+  if (!text || !stats) return;
+  text.textContent = "загрузка…";
+  try {
+    const data = await api(`digest?mode=${encodeURIComponent(DIGEST_MODE)}`);
+    if (!data || !data.ok) throw new Error("digest");
+    text.textContent = data.text || "пусто";
+    const c = data.counts || {};
+    const cards = DIGEST_MODE === "morning"
+      ? [["просрочено", c.overdue], ["на сегодня", c.today], ["в календаре", c.events_today], ["зависло", c.stale]]
+      : [["done обновлено", c.done_today], ["часов", c.hours_today], ["открытых задач", c.open], ["во входящих", c.inbox]];
+    stats.innerHTML = cards.map(([label, value]) => `<div><b>${esc(value)}</b><span>${esc(label)}</span></div>`).join("");
+    document.getElementById("digest-morning").classList.toggle("ghost", DIGEST_MODE !== "morning");
+    document.getElementById("digest-evening").classList.toggle("ghost", DIGEST_MODE !== "evening");
+  } catch (err) {
+    text.textContent = "Дайджест не загрузился";
+    stats.innerHTML = "";
+  }
 }
 
 function fmtWhen(s) {
@@ -2556,6 +2583,12 @@ const clientModePages = {
   "client-open-calendar": "calendar",
   "client-open-projects": "projects"
 };
+const digestMorning = document.getElementById("digest-morning");
+const digestEvening = document.getElementById("digest-evening");
+const digestRefresh = document.getElementById("digest-refresh");
+if (digestMorning) digestMorning.addEventListener("click", () => renderDigest("morning"));
+if (digestEvening) digestEvening.addEventListener("click", () => renderDigest("evening"));
+if (digestRefresh) digestRefresh.addEventListener("click", () => renderDigest());
 Object.entries(clientModePages).forEach(([id, target]) => {
   const button = document.getElementById(id);
   if (button) button.addEventListener("click", () => setClientContext(CLIENT_FILTER, target));

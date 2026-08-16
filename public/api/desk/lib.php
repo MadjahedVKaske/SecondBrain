@@ -648,6 +648,227 @@ function desk_work_from_row(array $r): array
     ];
 }
 
+function desk_digest_note(string $path): string
+{
+    if (!is_file($path)) {
+        return '';
+    }
+    $raw = (string)@file_get_contents($path);
+    foreach (preg_split("/\r\n|\n|\r/", $raw) as $line) {
+        $line = trim((string)$line);
+        if ($line === '' || strpos($line, '#') === 0 || $line === '---') {
+            continue;
+        }
+        $plain = trim(ltrim($line, "#-* \t"));
+        if ($plain === '' || strcasecmp($plain, 'Фокус') === 0 || strpos($line, '<!--') === 0) {
+            continue;
+        }
+        return mb_substr($plain, 0, 160);
+    }
+    return '';
+}
+
+function desk_digest_title(array $row): string
+{
+    $title = trim((string)($row['title'] ?? $row['slug'] ?? $row['id'] ?? '?'));
+    return mb_substr($title !== '' ? $title : '?', 0, 90);
+}
+
+function desk_digest_day($value): string
+{
+    $raw = trim((string)$value);
+    return preg_match('/^\d{4}-\d{2}-\d{2}/', $raw) ? substr($raw, 0, 10) : '';
+}
+
+function desk_digest_list(array $rows, int $limit = 3): string
+{
+    $names = array_map('desk_digest_title', array_slice($rows, 0, $limit));
+    $more = count($rows) > $limit ? ' +' . (count($rows) - $limit) : '';
+    return implode('; ', $names) . $more;
+}
+
+function desk_digest_event_list(array $events, int $limit = 3): string
+{
+    $labels = [];
+    foreach (array_slice($events, 0, $limit) as $event) {
+        $start = trim((string)($event['start'] ?? ''));
+        $time = preg_match('/[T ](\d{2}:\d{2})/', $start, $match) && empty($event['allDay'])
+            ? $match[1] . ' '
+            : '';
+        $labels[] = $time . desk_digest_title($event);
+    }
+    $more = count($events) > $limit ? ' +' . (count($events) - $limit) : '';
+    return implode('; ', $labels) . $more;
+}
+
+function desk_digest_inbox_count(string $root): int
+{
+    $dir = $root . '/brain/raw/_inbox';
+    if (!is_dir($dir)) {
+        return 0;
+    }
+    $count = 0;
+    try {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if ($file->isFile() && strcasecmp($file->getFilename(), 'README.md') !== 0) {
+                $count++;
+            }
+        }
+    } catch (Throwable $e) {
+        return 0;
+    }
+    return $count;
+}
+
+/** Собрать утренний/вечерний дайджест только из фактических локальных данных. */
+function desk_build_digest(string $mode, ?array $store = null): array
+{
+    $mode = $mode === 'evening' ? 'evening' : 'morning';
+    $store = $store ?? desk_load_store();
+    $today = desk_moscow_date();
+    $tomorrow = (new DateTime('tomorrow', new DateTimeZone('Europe/Moscow')))->format('Y-m-d');
+    $now = new DateTime('now', new DateTimeZone('Europe/Moscow'));
+    $root = str_replace('\\', '/', dirname(__DIR__, 3));
+    $focus = desk_digest_note($root . '/brain/wiki/focus.md');
+    $context = desk_digest_note($root . '/brain/wiki/INDEX.md');
+
+    $open = [];
+    $overdue = [];
+    $dueToday = [];
+    $dueTomorrow = [];
+    $doneToday = [];
+    $stale = [];
+    $unlocked = [];
+    $byId = [];
+    foreach ($store['tasks'] ?? [] as $task) {
+        if (!is_array($task)) {
+            continue;
+        }
+        $id = trim((string)($task['id'] ?? ''));
+        if ($id !== '') {
+            $byId[$id] = $task;
+        }
+        $status = (string)($task['status'] ?? '');
+        $day = desk_digest_day($task['due'] ?? '');
+        if ($status === 'done') {
+            if (desk_digest_day($task['updated_at'] ?? '') === $today) {
+                $doneToday[] = $task;
+            }
+            continue;
+        }
+        $open[] = $task;
+        if ($day !== '' && $day < $today) {
+            $overdue[] = $task;
+        } elseif ($day === $today) {
+            $dueToday[] = $task;
+        } elseif ($day === $tomorrow) {
+            $dueTomorrow[] = $task;
+        }
+        if (in_array($status, ['doing', 'waiting_reply', 'on_test'], true)) {
+            $updated = trim((string)($task['updated_at'] ?? ''));
+            try {
+                $changed = new DateTime($updated !== '' ? $updated : 'now', new DateTimeZone('UTC'));
+                $changed->setTimezone(new DateTimeZone('Europe/Moscow'));
+                $days = (int)$changed->diff($now)->format('%a');
+                $waitExpired = $status === 'waiting_reply'
+                    && desk_digest_day($task['wait_until'] ?? '') !== ''
+                    && desk_digest_day($task['wait_until'] ?? '') < $today;
+                if ($days >= 2 || $waitExpired) {
+                    $task['_stale_days'] = $days;
+                    $stale[] = $task;
+                }
+            } catch (Throwable $e) {
+            }
+        }
+    }
+    foreach ($open as $task) {
+        foreach (($task['links']['blocked_by'] ?? []) as $edge) {
+            $blocker = $byId[(string)($edge['from'] ?? '')] ?? null;
+            if ($blocker && ($blocker['status'] ?? '') === 'done') {
+                $unlocked[] = $task;
+                break;
+            }
+        }
+    }
+    usort($stale, static fn(array $a, array $b): int => ($b['_stale_days'] ?? 0) <=> ($a['_stale_days'] ?? 0));
+
+    $eventsToday = [];
+    foreach ($store['events'] ?? [] as $event) {
+        if (is_array($event) && desk_digest_day($event['start'] ?? '') === $today) {
+            $eventsToday[] = $event;
+        }
+    }
+    $worksToday = array_values(array_filter($store['works'] ?? [], static fn($work): bool =>
+        is_array($work) && desk_digest_day($work['date'] ?? '') === $today
+    ));
+    $hours = array_reduce($worksToday, static fn(float $sum, array $work): float => $sum + (float)($work['hours'] ?? 0), 0.0);
+    $inbox = desk_digest_inbox_count($root);
+
+    $head = ($mode === 'morning' ? 'Утро ' : 'Вечер ') . $now->format('d.m');
+    $lines = [$head];
+    if ($focus !== '') {
+        $lines[] = 'Фокус: ' . $focus;
+    } elseif ($context !== '') {
+        $lines[] = 'Контекст: ' . $context;
+    }
+    if ($mode === 'morning') {
+        $burning = array_merge($overdue, $dueToday);
+        $lines[] = $burning
+            ? 'Горит: ' . count($overdue) . ' просроч., ' . count($dueToday) . ' сегодня — ' . desk_digest_list($burning)
+            : 'Горит: тишина';
+        $lines[] = $eventsToday
+            ? 'Календарь: ' . count($eventsToday) . ' — ' . desk_digest_event_list($eventsToday)
+            : 'Календарь: пусто';
+    } else {
+        $was = [];
+        if ($doneToday) {
+            $was[] = count($doneToday) . ' задач в done обновлено';
+        }
+        if ($worksToday) {
+            $was[] = rtrim(rtrim(number_format($hours, 2, '.', ''), '0'), '.') . ' ч учтено';
+        }
+        if ($eventsToday) {
+            $was[] = count($eventsToday) . ' событий';
+        }
+        $lines[] = 'Было: ' . ($was ? implode(', ', $was) : 'нет отметок');
+        $lines[] = $open
+            ? 'Открыто: ' . count($open) . ' — ' . desk_digest_list($open)
+            : 'Открыто: задач нет';
+        if ($dueTomorrow) {
+            $lines[] = 'Завтра: ' . count($dueTomorrow) . ' — ' . desk_digest_list($dueTomorrow);
+        }
+        $lines[] = 'В wiki: ' . ($inbox ? $inbox . ' входящих разобрать' : 'inbox пуст');
+    }
+    if ($stale) {
+        $lines[] = 'Зависли: ' . desk_digest_list($stale);
+    }
+    if ($unlocked) {
+        $lines[] = 'Разлок: ' . desk_digest_list($unlocked);
+    }
+
+    return [
+        'ok' => true,
+        'mode' => $mode,
+        'date' => $today,
+        'focus' => $focus,
+        'context' => $context,
+        'counts' => [
+            'overdue' => count($overdue),
+            'today' => count($dueToday),
+            'tomorrow' => count($dueTomorrow),
+            'events_today' => count($eventsToday),
+            'done_today' => count($doneToday),
+            'works_today' => count($worksToday),
+            'hours_today' => $hours,
+            'open' => count($open),
+            'stale' => count($stale),
+            'unlocked' => count($unlocked),
+            'inbox' => $inbox,
+        ],
+        'text' => implode("\n", $lines),
+    ];
+}
+
 function desk_habit_from_row(array $r): array
 {
     $checks = json_decode((string)($r['checks'] ?? '{}'), true);
