@@ -7,15 +7,15 @@ services:
     environment:
       MYSQL_DATABASE: desk
       MYSQL_USER: desk
-      MYSQL_PASSWORD: desk
-      MYSQL_ROOT_PASSWORD: deskroot
+      MYSQL_PASSWORD: ${DESK_DB_PASSWORD:?set DESK_DB_PASSWORD in docker/.env}
+      MYSQL_ROOT_PASSWORD: ${DESK_DB_ROOT_PASSWORD:?set DESK_DB_ROOT_PASSWORD in docker/.env}
     ports:
       - "3307:3306"
     volumes:
       - buro1_desk_mysql:/var/lib/mysql
       - ../public/api/desk/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-udesk", "-pdesk"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -udesk -p$$MYSQL_PASSWORD"]
       interval: 5s
       timeout: 3s
       retries: 20

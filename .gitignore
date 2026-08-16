@@ -51,6 +51,8 @@ public/api/boats/_data/
 .local/
 .secrets/
 tools/buro1-tg-inbox/config.local.json
+docker/.env
+docker/desk-config.local.php
 
 # Второй мозг: личное не в git
 brain/raw/

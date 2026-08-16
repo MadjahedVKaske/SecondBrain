@@ -26,7 +26,16 @@
 ## Локальные секреты
 
 - `tools/buro1-tg-inbox/config.local.json` — доступ к VPS notify;
-- каталог и файл исключены из Git;
+- `.secrets/mysql.local.json` — учётные данные локальной MySQL;
+- `.secrets/desk.local.json` и `docker/desk-config.local.php` — локальные ключи desk;
+- секретные файлы исключены из Git;
 - репозиторий содержит только `config.sample.json` без рабочих значений.
+
+## Локальная база
+
+- MySQL Community Server 8.4.10 LTS установлен в `.local/mysql/`;
+- сервер работает на `127.0.0.1:3307`;
+- база `desk` импортирована из локального prod-дампа: 13 таблиц;
+- управление: `scripts/mysql_local_start.ps1`, `mysql_local_status.ps1`, `mysql_local_stop.ps1`.
 
 Изменения выполняются только внутри рабочего корня. Исходный проект Cursor не изменяется.
