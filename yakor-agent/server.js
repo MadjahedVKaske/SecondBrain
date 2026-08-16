@@ -11,7 +11,10 @@ const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 const STORE_PATH = path.join(DATA_DIR, "store.json");
 const PORT = Number(process.env.PORT || 3100);
 const HOST = process.env.HOST || "127.0.0.1";
-const ADMIN_TOKEN = process.env.YAKOR_AGENT_TOKEN || "yakor-dev-token";
+const ADMIN_TOKEN = process.env.YAKOR_AGENT_TOKEN;
+if (!ADMIN_TOKEN) {
+  throw new Error("YAKOR_AGENT_TOKEN is required");
+}
 const DEFAULT_REPO =
   process.env.YAKOR_DEFAULT_REPO_URL ||
   "https://github.com/MadjahedVKaske/YakorPushTest.git";

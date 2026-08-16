@@ -1,0 +1,5 @@
+# Telegram inbox - VPS, не REG.RU
+
+Код: этот каталог. Живой бот: VPS `http://45.10.42.191/api/tg` (потом `brain.buro1.tech`).
+
+На `buro1.tech/api/tg` бота нет (410). config.php с токеном на REG.RU не класть.

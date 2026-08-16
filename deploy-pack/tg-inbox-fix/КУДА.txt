@@ -1,0 +1,3 @@
+Устарело. Бот с REG.RU снят, inbox на VPS.
+
+Не заливать в www/buro1.tech/api/tg/

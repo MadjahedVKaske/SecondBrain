@@ -1,0 +1,22 @@
+---
+description: Чекай = inbox Telegram на VPS brain, не старый хостинг.
+alwaysApply: true
+---
+
+# TG inbox
+
+Скил: `~/.cursor/skills/buro1-tg-inbox/SKILL.md`
+
+**Чекай** = проверка VPS (`http://45.10.42.191/api/tg`). Приём 24/7 там. Читать inbox с сервера.
+
+Опрос стола: `desk_watch.py` GET на VPS раз в ~8с. Новое → `AGENT_LOOP_WAKE_DESK`. Reverse SSH нет.
+Автозагрузка Windows поднимает тот же скрипт. Перед стартом вотчера в этой сессии убить чужие процессы `desk_watch`.
+
+Если в сессии прилетел `AGENT_LOOP_WAKE_DESK` - чекай inbox с VPS, ответь в бота, делай здесь. Не спрашивай про новый чат.
+
+Запрещено: getUpdates, `admin/pull`, `https://buro1.tech/api/tg`, `--direct`, репо-скрипт как источник правды.
+
+```bash
+python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_inbox.py
+python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_notify.py "Готово: …"
+```

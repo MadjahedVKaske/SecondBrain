@@ -1,0 +1,5 @@
+{
+  "base_url": "http://127.0.0.1/api/tg",
+  "admin_token": "change-me-long-random",
+  "chat_id": 0
+}

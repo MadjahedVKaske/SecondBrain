@@ -1,9 +1,7 @@
 RewriteEngine On
 
-# API Якоря / стол - не отдавать в SPA
+# API Якоря - не отдавать в SPA
 RewriteRule ^api/ - [L]
-RewriteRule ^desk/ - [L]
-RewriteRule ^b24-widget/ - [L]
 
 # Статика как есть
 RewriteCond %{REQUEST_FILENAME} -f [OR]

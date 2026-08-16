@@ -1,0 +1,65 @@
+---
+description: Второй мозг - wiki/raw, ingest, утро/вечер. Не Notion, не второй бот.
+alwaysApply: true
+---
+
+# Второй мозг
+
+Читать `brain/SCHEMA.md` и `brain/wiki/INDEX.md` до ответов про день, клиентов, приоритеты.
+
+Личное в `brain/wiki/` и `brain/raw/` - не коммитить.
+
+## Чекай
+
+Сначала VPS inbox (скилл `buro1-tg-inbox`). Если голос/встреча/решение - ingest:
+
+1. сырьё в `brain/raw/tg/` или `brain/raw/meetings/`
+2. wiki по людям/клиентам (имена только из INDEX)
+3. задачи на стол, не в wiki
+4. inbox сырья пустой
+5. квитанция в бота: куда легло, не «ок, понял»
+
+```bash
+python ~/.cursor/skills/buro1-tg-inbox/scripts/tg_inbox.py
+python C:/Cursor/buro1-insight-hub/scripts/brain_ingest_tg.py
+python C:/Cursor/buro1-insight-hub/scripts/brain_receipt.py --raw tg/ID.md --wiki clients/x.md --task "slug" --notify
+```
+
+Имена только из INDEX. Что уже отшили - `brain/wiki/declined.md`, не предлагать снова.
+
+После правок wiki: `python C:/Cursor/buro1-insight-hub/scripts/brain_lint.py`
+
+## Утро / вечер
+
+Триггеры: **утро**, **вечер**, **план на день**, **разбор дня**.
+
+1. `brain/wiki/INDEX.md` + фокус
+2. открытые задачи: `C:\Cursor\Tasks` и стол VPS
+3. календарь Яндекс (сегодня / неделя)
+4. дайджест в бота (~5 строк: горит / зависло / разлок)
+5. не выдумывать клиентов и дедлайны, которых нет в файлах
+
+```bash
+python C:/Cursor/buro1-insight-hub/scripts/brain_digest.py --mode morning --notify
+python C:/Cursor/buro1-insight-hub/scripts/brain_digest.py --mode evening --notify
+```
+
+Утро: что делать сегодня. Вечер: что было, что открыто, что в wiki дописать.
+
+## Опрос VPS
+
+`desk_watch.py` раз в ~8с читает очередь стола. Новое → `AGENT_LOOP_WAKE_DESK`. Reverse SSH нет.
+
+Если wake прилетел - чекай inbox, не жди «чекай» руками.
+
+```powershell
+python C:\Cursor\buro1-insight-hub\scripts\desk_watch.py
+```
+
+## Стол UI
+
+После любой правки `public/desk/` - открыть живой стол в браузере и проверить вёрстку: не портянка, не дубль «клиент клиент направление», не серый обрезок. Пока сам не глянул - не писать «готово».
+
+## Запрещено
+
+Список живой: `brain/wiki/declined.md`. Сейчас: Plaud, Notion, Claude Desktop, второй TG-бот для мозга, getUpdates с домашней тачки, reverse SSH.

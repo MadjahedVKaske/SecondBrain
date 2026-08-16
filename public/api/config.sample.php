@@ -3,7 +3,7 @@
  * Скопируй в config.php и поменяй токены.
  */
 return [
-    'admin_token' => 'yakor-dev-token',
+    'admin_token' => 'change-me-long-random',
     // PAT/OAuth GitHub с правом push в репы проектов (серверный, не пользацкий)
     'github_token' => '',
     'longpoll_ms' => 14000,

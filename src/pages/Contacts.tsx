@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Layout from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,7 @@ import {
   MapPin, 
   Clock,
   MessageCircle,
-  Send,
-  Settings
+  Send
 } from "lucide-react";
 
 const Contacts = () => {
@@ -24,62 +23,7 @@ const Contacts = () => {
     email: "",
     message: ""
   });
-  const [telegramConfig, setTelegramConfig] = useState({
-    botToken: "7892112762:AAHXPgEe61P7DSjWoncgTctuEGIbeJl_MTA",
-    chatId: "57105958"
-  });
-  const [showTelegramConfig, setShowTelegramConfig] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    const savedConfig = localStorage.getItem("telegram-config");
-    if (savedConfig) {
-      setTelegramConfig(JSON.parse(savedConfig));
-    }
-
-    // Секретная комбинация для админа: Ctrl+Shift+T
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'T') {
-        setShowTelegramConfig(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  const saveTelegramConfig = () => {
-    localStorage.setItem("telegram-config", JSON.stringify(telegramConfig));
-    setShowTelegramConfig(false);
-    toast({
-      title: "Настройки сохранены",
-      description: "Конфигурация Telegram сохранена в браузере"
-    });
-  };
-
-  const sendToTelegram = async (message: string) => {
-    if (!telegramConfig.botToken || !telegramConfig.chatId) {
-      throw new Error("Telegram не настроен");
-    }
-
-    const url = `https://api.telegram.org/bot${telegramConfig.botToken}/sendMessage`;
-    
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        chat_id: telegramConfig.chatId,
-        text: message,
-        parse_mode: "HTML"
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Ошибка отправки в Telegram");
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,21 +40,14 @@ const Contacts = () => {
     setIsSubmitting(true);
 
     try {
-      const message = `
-🔔 <b>Новая заявка с сайта BURO1</b>
-
-👤 <b>Имя:</b> ${formData.name}
-🏢 <b>Компания:</b> ${formData.company || "Не указана"}
-📞 <b>Телефон:</b> ${formData.phone}
-📧 <b>Email:</b> ${formData.email || "Не указан"}
-
-💬 <b>Сообщение:</b>
-${formData.message}
-
-⏰ <b>Время:</b> ${new Date().toLocaleString("ru-RU")}
-      `.trim();
-
-      await sendToTelegram(message);
+      const response = await fetch("/api/contact/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!response.ok) {
+        throw new Error("Ошибка отправки заявки");
+      }
 
       toast({
         title: "Заявка отправлена!",
@@ -233,41 +170,6 @@ ${formData.message}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {showTelegramConfig && (
-                  <div className="mb-4">
-                    <Card className="mb-4 border-dashed border-red-200 bg-red-50/50">
-                      <CardHeader>
-                        <CardTitle className="text-lg text-red-800">⚙️ Настройки администратора</CardTitle>
-                        <CardDescription className="text-red-600">
-                          Конфигурация Telegram для получения заявок
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Bot Token</label>
-                          <Input
-                            type="password"
-                            placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                            value={telegramConfig.botToken}
-                            onChange={(e) => setTelegramConfig(prev => ({ ...prev, botToken: e.target.value }))}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">Chat ID</label>
-                          <Input
-                            placeholder="-1001234567890"
-                            value={telegramConfig.chatId}
-                            onChange={(e) => setTelegramConfig(prev => ({ ...prev, chatId: e.target.value }))}
-                          />
-                        </div>
-                        <Button onClick={saveTelegramConfig} size="sm">
-                          Сохранить настройки
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

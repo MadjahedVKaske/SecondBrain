@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+__pycache__/
+*.pyc
 
 # Yakor agent mock runtime
 yakor-agent/data/
@@ -18,6 +20,42 @@ yakor-agent/node_modules/
 deploy-pack/config.php
 deploy-pack/task-puteprovod.json
 deploy-pack/cfg-stage/
+deploy-pack/*-stage/
+deploy-pack/full-api-stage/
+deploy-pack/tg-api-full/
+deploy-pack/tg-api-stub/
+deploy-pack/tg-flat/
+deploy-pack/tg-media/
+deploy-pack/inbox-last.json
+deploy-pack/tg-pull.json
+deploy-pack/*.zip
+deploy-pack/FORCE_REMOTE_YakorPushTest.bat
+b24-widget-skeleton/_docs_fetch/
+
+# VPS SSH keys (local only)
+_tmp/ssh/
+_tmp/wake_home.json
+_tmp/desk/*.sql
+_tmp/desk/desk-mysql-latest.sql
+
+# TG: секреты и runtime только на хостинге / локально
+public/api/tg/config.php
+public/api/tg/_data/
+public/api/contact/config.php
+public/api/desk/config.php
+public/api/desk/_data/
+public/api/boats/config.php
+public/api/boats/_data/
+
+# Codex local runtime and credentials
+.local/
+.secrets/
+tools/buro1-tg-inbox/config.local.json
+
+# Второй мозг: личное не в git
+brain/raw/
+brain/wiki/
+brain/plans/
 
 # Editor directories and files
 .vscode/*

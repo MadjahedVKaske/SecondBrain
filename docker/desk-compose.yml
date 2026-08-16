@@ -1,0 +1,38 @@
+# Локальный стол: docker compose -f docker/desk-compose.yml up -d
+# Стол: http://localhost:8080/desk/?k=dev-local (ключ из config.local.php)
+services:
+  desk-db:
+    image: mysql:8.0
+    container_name: buro1-desk-db
+    environment:
+      MYSQL_DATABASE: desk
+      MYSQL_USER: desk
+      MYSQL_PASSWORD: desk
+      MYSQL_ROOT_PASSWORD: deskroot
+    ports:
+      - "3307:3306"
+    volumes:
+      - buro1_desk_mysql:/var/lib/mysql
+      - ../public/api/desk/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-udesk", "-pdesk"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  desk-web:
+    build:
+      context: .
+      dockerfile: desk-php.Dockerfile
+    container_name: buro1-desk-web
+    ports:
+      - "8080:80"
+    volumes:
+      - ../public:/var/www/html:ro
+      - ./desk-config.local.php:/var/www/html/api/desk/config.php:ro
+    depends_on:
+      desk-db:
+        condition: service_healthy
+
+volumes:
+  buro1_desk_mysql:

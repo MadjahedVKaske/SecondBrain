@@ -1,0 +1,26 @@
+# Лайт-вотчер экрана (обновление 1С в RDP)
+
+## Раз
+
+```bat
+pip install pillow
+```
+
+## Запуск (пока крутится обновление)
+
+```bat
+python C:\Cursor\buro1-insight-hub\scripts\watch_screen.py
+```
+
+Скрины: `Desktop\1c-update-screens\`  
+`latest.png` - всегда последний кадр.
+
+При заметном изменении → сообщение в TG-бота.
+
+Опции:
+- `--interval 30` - чаще
+- `--threshold 3` - менее чувствительно
+- `--no-tg` - только файлы
+
+Стоп: `Ctrl+C` (в окне cmd, где крутится) или создай файл
+`Desktop\1c-update-screens\stop.txt` - скрипт сам выйдет.

@@ -17,7 +17,7 @@
 ```bash
 cd yakor-agent
 npm install
-set YAKOR_AGENT_TOKEN=yakor-dev-token
+set YAKOR_AGENT_TOKEN=<local-secret>
 npm start
 ```
 
@@ -27,7 +27,7 @@ Health: `http://127.0.0.1:3100/health`
 
 ```bash
 curl -s -X POST "http://127.0.0.1:3100/api/yakors/<yakor_id>/admin/enqueue" ^
-  -H "Authorization: Bearer yakor-dev-token" ^
+  -H "Authorization: Bearer <local-secret>" ^
   -H "Content-Type: application/json" ^
   -d "{\"tool\":\"heartbeat\",\"project_id\":\"<project_uuid>\",\"params\":{}}"
 ```
@@ -36,7 +36,7 @@ curl -s -X POST "http://127.0.0.1:3100/api/yakors/<yakor_id>/admin/enqueue" ^
 
 ```bash
 curl -s "http://127.0.0.1:3100/api/yakors/<yakor_id>/admin/results" ^
-  -H "Authorization: Bearer yakor-dev-token"
+  -H "Authorization: Bearer <local-secret>"
 ```
 
 ## Nginx (на сервере)

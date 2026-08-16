@@ -10,7 +10,7 @@ https://buro1.tech/api/yakors/4fc729bb-ee85-4943-bb71-6710c7db4aa4/tasks/results
 https://buro1.tech/api/yakors/4fc729bb-ee85-4943-bb71-6710c7db4aa4/files/
 ```
 
-Token админки (enqueue / чек results): по умолчанию `yakor-dev-token`  
+Token админки (enqueue / чек results): только из локального `config.php`  
 Файл: `public/api/config.php`
 
 ## Как залить через панель (без SSH)
@@ -40,7 +40,7 @@ Vite копирует `public/` → `dist/`. После билда в document r
 
 ```bash
 curl -s -X POST "https://buro1.tech/api/yakors/4fc729bb-ee85-4943-bb71-6710c7db4aa4/admin/enqueue" ^
-  -H "Authorization: Bearer yakor-dev-token" ^
+  -H "Authorization: Bearer <local-secret>" ^
   -H "Content-Type: application/json" ^
   -d "{\"tool\":\"heartbeat\",\"project_id\":\"<uuid проекта>\",\"params\":{}}"
 ```
@@ -49,5 +49,25 @@ curl -s -X POST "https://buro1.tech/api/yakors/4fc729bb-ee85-4943-bb71-6710c7db4
 
 ```bash
 curl -s "https://buro1.tech/api/yakors/4fc729bb-ee85-4943-bb71-6710c7db4aa4/admin/results" ^
-  -H "Authorization: Bearer yakor-dev-token"
+  -H "Authorization: Bearer <local-secret>"
 ```
+
+## Telegram inbox (`/api/tg/`)
+
+Живёт на VPS brain. Чекай читает inbox, поллер сам ходит в Telegram.
+
+База: `http://45.10.42.191/api/tg/`  
+Header: `X-Yakor-Token: <local-secret>`
+
+- `GET admin/inbox` - список
+- `GET admin/item/{id}?file=1` - элемент + файл
+- `POST admin/send` - `{"text":"..."}`
+
+Канон чекай/notify: `~/.cursor/skills/buro1-tg-inbox/`. `admin/pull` / getUpdates с домашней тачки не вызывать.
+
+## Бук катеров (`/api/boats/`)
+
+VPS-релей для `katervl.ru`: сайт на REG.RU шлёт бронь сюда, бот пишет в Telegram из Амстердама.
+
+`POST http://45.10.42.191/api/boats/notify`  
+Header `X-Boats-Token` (не bot_token). Body `{"text":"..."}`.
