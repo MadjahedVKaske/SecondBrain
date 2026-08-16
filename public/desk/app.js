@@ -569,9 +569,13 @@ function clearAllFilters() {
   CLIENT_FILTER = "";
   PROJECT_FILTER = "";
   saveDeskFilters();
+  renderClientContext();
+  renderClientMode();
   renderFilters();
   renderProjectBanner();
   renderTasks();
+  renderProjects();
+  try { renderCal(); } catch (err) { console.warn("cal", err); }
 }
 
 function clearProjectFilter() {
@@ -583,17 +587,76 @@ function clearProjectFilter() {
 }
 
 function openClient(id) {
+  setClientContext(id, "tasks");
+}
+
+function setClientContext(id, targetPage) {
   CLIENT_FILTER = id || "";
   if (CLIENT_FILTER && PROJECT_FILTER) {
     const p = (STATE.projects || []).find(x => x.id === PROJECT_FILTER);
     if (p && p.client_id && p.client_id !== CLIENT_FILTER) PROJECT_FILTER = "";
   }
-  if (location.hash !== "#tasks") location.hash = "#tasks";
   saveDeskFilters();
+  renderClientContext();
+  renderClientMode();
   renderFilters();
   renderProjectBanner();
   renderTasks();
+  renderProjects();
+  try { renderCal(); } catch (err) { console.warn("cal", err); }
   prefillTaskForm();
+  if (targetPage && location.hash !== "#" + targetPage) location.hash = "#" + targetPage;
+}
+
+function renderClientContext() {
+  const el = document.getElementById("client-context");
+  if (!el) return;
+  if (!CLIENT_FILTER) {
+    el.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = `<span>Режим клиента: <b>${esc(clientTitle(CLIENT_FILTER) || "клиент")}</b></span>
+    <button type="button" class="ghost" id="client-context-clear">Общий режим</button>`;
+  document.getElementById("client-context-clear").onclick = () => setClientContext("", location.hash.replace("#", "") || "tasks");
+}
+
+function renderClientMode() {
+  const box = document.getElementById("client-mode");
+  const select = document.getElementById("client-mode-select");
+  if (!box || !select || !STATE) return;
+  const current = CLIENT_FILTER;
+  select.innerHTML = `<option value="">выберите клиента</option>` + (STATE.clients || []).map(c =>
+    `<option value="${esc(c.id)}" ${c.id === current ? "selected" : ""}>${esc(c.title)}</option>`
+  ).join("");
+  document.querySelectorAll(".client-mode-actions button").forEach(btn => { btn.disabled = !current; });
+  if (!current) {
+    box.innerHTML = `<div class="empty">Выбери клиента — здесь будут его задачи, календарь и проекты.</div>`;
+    return;
+  }
+
+  const tasks = (STATE.tasks || []).filter(t => t.status !== "done" && taskMatchesClient(t, current));
+  const done = (STATE.tasks || []).filter(t => t.status === "done" && taskMatchesClient(t, current));
+  const projects = (STATE.projects || []).filter(p => (p.client_id || "") === current && p.status !== "done");
+  const scheduled = tasks.filter(t => t.due).sort((a, b) => String(a.due).localeCompare(String(b.due)));
+  const taskRows = tasks.slice(0, 30).map(t => `<button type="button" class="client-item client-task" data-id="${esc(t.id)}">${esc(t.title)}<small>${esc([STATUS[t.status] || t.status, t.due || ""].filter(Boolean).join(" · "))}</small></button>`).join("");
+  const calRows = scheduled.slice(0, 30).map(t => `<button type="button" class="client-item client-task" data-id="${esc(t.id)}">${esc(t.due)} · ${esc(t.title)}<small>${esc(STATUS[t.status] || t.status)}</small></button>`).join("");
+  const projectRows = projects.map(p => `<button type="button" class="client-item client-project" data-id="${esc(p.id)}">${esc(p.title)}<small>${esc(PSTATUS[p.status] || p.status)}</small></button>`).join("");
+  box.innerHTML = `
+    <div class="client-stats">
+      <div class="client-stat"><b>${tasks.length}</b><span class="sub">открытых задач</span></div>
+      <div class="client-stat"><b>${scheduled.length}</b><span class="sub">с датой</span></div>
+      <div class="client-stat"><b>${projects.length}</b><span class="sub">проектов</span></div>
+      <div class="client-stat"><b>${done.length}</b><span class="sub">выполнено</span></div>
+    </div>
+    <div class="client-mode-grid">
+      <section class="col"><h2>Задачи</h2>${taskRows || '<div class="empty">открытых задач нет</div>'}</section>
+      <section class="col"><h2>Календарь задач</h2>${calRows || '<div class="empty">задач с датой нет</div>'}</section>
+      <section class="col"><h2>Проекты</h2>${projectRows || '<div class="empty">открытых проектов нет</div>'}</section>
+    </div>`;
+  box.querySelectorAll(".client-task").forEach(el => { el.onclick = () => openTask(el.dataset.id, { clearStack: true }); });
+  box.querySelectorAll(".client-project").forEach(el => { el.onclick = () => openProjectDetail(el.dataset.id); });
 }
 
 function renderProjectBanner() {
@@ -683,16 +746,7 @@ function renderFilters() {
     clientEl.addEventListener("change", () => {
       if (clientEl.value) openClient(clientEl.value);
       else {
-        CLIENT_FILTER = "";
-        if (PROJECT_FILTER) {
-          const p = (STATE.projects || []).find(x => x.id === PROJECT_FILTER);
-          if (p && p.client_id) PROJECT_FILTER = "";
-        }
-        saveDeskFilters();
-        renderFilters();
-        renderProjectBanner();
-        renderTasks();
-        prefillTaskForm();
+        setClientContext("", "tasks");
       }
     });
   }
@@ -1773,7 +1827,7 @@ function saveTaskTimes(e) {
 }
 
 function calEvents() {
-  const fromEvents = (STATE.events || []).map(e => {
+  const fromEvents = (CLIENT_FILTER ? [] : (STATE.events || [])).map(e => {
     const area = areaKey(e.calendar);
     const start = e.start;
     const end = e.end || undefined;
@@ -1791,7 +1845,7 @@ function calEvents() {
       extendedProps: { kind: "event", rawId: e.id, area }
     };
   });
-  const fromTasks = (STATE.tasks || []).filter(t => t.status !== "done" && t.due).map(t => {
+  const fromTasks = (STATE.tasks || []).filter(t => t.status !== "done" && t.due && taskMatchesClient(t, CLIENT_FILTER)).map(t => {
     const area = areaKey(t.area);
     const times = taskToCal(t);
     return {
@@ -1929,7 +1983,7 @@ function renderProjects() {
   const cols = Object.keys(PSTATUS).filter(st => st !== "idea");
   const box = document.getElementById("kanban");
   box.innerHTML = cols.map(st => {
-    const cards = (STATE.projects || []).filter(p => (p.status || "idea") === st).map(p => {
+    const cards = (STATE.projects || []).filter(p => (p.status || "idea") === st && (!CLIENT_FILTER || (p.client_id || "") === CLIENT_FILTER)).map(p => {
       const n = (STATE.tasks || []).filter(t => taskHasDirection(t, p.id) && t.status !== "done").length;
       return `<div class="kcard" data-id="${esc(p.id)}" role="button" tabindex="0">
         <span class="drag" title="перетащить">⋮⋮</span>
@@ -2297,6 +2351,8 @@ async function load() {
   const areaEl = document.getElementById("nt-area");
   if (areaEl && AREA_FILTER !== "все") areaEl.value = AREA_FILTER;
   fillLinkedSelects();
+  renderClientContext();
+  renderClientMode();
   renderFilters();
   renderProjectBanner();
   renderTasks();
@@ -2437,4 +2493,17 @@ const niClient = document.getElementById("ni-client");
 if (niClient) {
   niClient.addEventListener("change", () => maybeNewClient(niClient, null));
 }
+const clientModeSelect = document.getElementById("client-mode-select");
+if (clientModeSelect) {
+  clientModeSelect.addEventListener("change", () => setClientContext(clientModeSelect.value, "client"));
+}
+const clientModePages = {
+  "client-open-tasks": "tasks",
+  "client-open-calendar": "calendar",
+  "client-open-projects": "projects"
+};
+Object.entries(clientModePages).forEach(([id, target]) => {
+  const button = document.getElementById(id);
+  if (button) button.addEventListener("click", () => setClientContext(CLIENT_FILTER, target));
+});
 load();

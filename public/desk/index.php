@@ -66,11 +66,13 @@ header('Cache-Control: no-store');
     <nav class="tabs">
       <a href="#tasks">Задачи</a>
       <a href="#ideas">Идеи</a>
+      <a href="#client">Клиент</a>
       <a href="#calendar">Календарь</a>
       <a href="#projects">Проекты</a>
       <a href="#goals">Цели</a>
       <a href="#habits">Привычки</a>
     </nav>
+    <div id="client-context" class="client-context" hidden></div>
 
     <section class="page" id="p-tasks">
       <nav class="tabs filters" id="area-filters"></nav>
@@ -134,6 +136,18 @@ header('Cache-Control: no-store');
         </select>
       </div>
       <div class="col"><div id="fc"></div></div>
+    </section>
+
+    <section class="page" id="p-client">
+      <div class="client-mode-head">
+        <label class="fld"><span>клиент</span><select id="client-mode-select"></select></label>
+        <div class="client-mode-actions">
+          <button type="button" class="ghost" id="client-open-tasks">Задачи</button>
+          <button type="button" class="ghost" id="client-open-calendar">Календарь</button>
+          <button type="button" class="ghost" id="client-open-projects">Проекты</button>
+        </div>
+      </div>
+      <div id="client-mode"></div>
     </section>
 
     <section class="page" id="p-projects">
