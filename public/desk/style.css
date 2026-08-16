@@ -57,13 +57,14 @@ h2 { margin: 0 0 10px; font-size: .75rem; text-transform: uppercase; letter-spac
   margin-bottom: 12px;
   align-items: end;
 }
-.form-task, .form-proj, .form-goal, .form-habit {
+.form-task, .form-proj, .form-goal, .form-habit, .form-idea {
   display: grid;
   grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(128px, 1fr)) auto;
   align-items: end;
 }
 .form-proj, .form-goal { grid-template-columns: minmax(220px, 2fr) minmax(160px, 1fr) minmax(140px, 1fr) auto; }
 .form-habit { grid-template-columns: minmax(220px, 1fr) auto; }
+.form-idea { grid-template-columns: minmax(260px, 2fr) minmax(180px, 1fr) auto; }
 .form button { flex: 0 0 auto; white-space: nowrap; height: 38px; }
 .fld {
   display: flex;
@@ -509,6 +510,13 @@ details.section .sec-bar > i { display: block; height: 100%; background: var(--p
   color: var(--muted); font-size: .8rem; line-height: 1.1; user-select: none;
 }
 .kcard .drag:active { cursor: grabbing; }
+.ideas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-top: 12px; }
+.idea-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+.idea-card:hover { border-color: var(--accent); }
+.idea-card h3 { margin: 0 0 6px; font-size: .95rem; overflow-wrap: anywhere; }
+.idea-card p { margin: 0 0 12px; color: var(--muted); font-size: .82rem; min-height: 1.2em; overflow-wrap: anywhere; }
+.idea-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.idea-actions button { font-size: .75rem; padding: 6px 9px; }
 .proj-banner {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
   background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
@@ -607,8 +615,8 @@ details.group-done > summary.group-head .group-title {
 @media (max-width: 720px) {
   .task { grid-template-columns: 22px minmax(0, 1fr); }
   .pills { grid-column: 2 / -1; justify-content: flex-start; max-width: none; margin-top: -4px; }
-  .form-task, .form-proj, .form-goal { grid-template-columns: 1fr 1fr; }
-  .form-task .fld-title, .form-proj .fld-title, .form-goal .fld-title { grid-column: 1 / -1; }
+  .form-task, .form-proj, .form-goal, .form-idea { grid-template-columns: 1fr 1fr; }
+  .form-task .fld-title, .form-proj .fld-title, .form-goal .fld-title, .form-idea .fld-title { grid-column: 1 / -1; }
   .form button { grid-column: 1 / -1; }
   .wrap { padding: 12px 12px 36px; }
   body.drawer-on .wrap { margin-right: 0; }

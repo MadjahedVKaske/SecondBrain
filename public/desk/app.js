@@ -403,6 +403,7 @@ function fillLinkedSelects() {
   const ntC = document.getElementById("nt-client");
   const ntP = document.getElementById("nt-proj");
   const npC = document.getElementById("np-client");
+  const niC = document.getElementById("ni-client");
   if (ntC) {
     const cur = ntC.value;
     ntC.innerHTML = clientOptions(cur, true);
@@ -414,6 +415,10 @@ function fillLinkedSelects() {
   if (npC) {
     const cur = npC.value;
     npC.innerHTML = clientOptions(cur, true);
+  }
+  if (niC) {
+    const cur = niC.value;
+    niC.innerHTML = clientOptions(cur, true);
   }
 }
 
@@ -1888,8 +1893,40 @@ function renderCal() {
   CAL.render();
 }
 
+function renderIdeas() {
+  const box = document.getElementById("ideas");
+  if (!box) return;
+  const ideas = (STATE.projects || []).filter(p => (p.status || "idea") === "idea");
+  box.innerHTML = ideas.length ? ideas.map(p => `
+    <article class="idea-card" data-id="${esc(p.id)}">
+      <h3>${esc(projectPath(p) || p.title)}</h3>
+      <p>${esc(p.notes || (p.client_id ? clientTitle(p.client_id) : "без клиента"))}</p>
+      <div class="idea-actions">
+        <button type="button" class="idea-open ghost">Открыть</button>
+        <button type="button" class="idea-promote">В бэклог</button>
+        <button type="button" class="idea-delete danger">Удалить</button>
+      </div>
+    </article>`).join("") : `<div class="empty">идей пока нет</div>`;
+
+  box.querySelectorAll(".idea-card").forEach(card => {
+    const id = card.dataset.id;
+    card.querySelector(".idea-open").onclick = () => openProjectDetail(id);
+    card.querySelector(".idea-promote").onclick = async () => {
+      await api(`projects/${id}`, { status: "backlog" });
+      await load();
+      toast("Идея перенесена в бэклог");
+    };
+    card.querySelector(".idea-delete").onclick = async () => {
+      const idea = (STATE.projects || []).find(p => p.id === id);
+      if (!idea || !confirm(`Удалить идею «${idea.title}»?`)) return;
+      await api(`projects/${id}/delete`, {});
+      await load();
+    };
+  });
+}
+
 function renderProjects() {
-  const cols = Object.keys(PSTATUS);
+  const cols = Object.keys(PSTATUS).filter(st => st !== "idea");
   const box = document.getElementById("kanban");
   box.innerHTML = cols.map(st => {
     const cards = (STATE.projects || []).filter(p => (p.status || "idea") === st).map(p => {
@@ -2265,6 +2302,7 @@ async function load() {
   renderTasks();
   if (PROJECT_FILTER || CLIENT_FILTER) prefillTaskForm();
   try { renderCal(); } catch (err) { console.warn("cal", err); }
+  renderIdeas();
   renderProjects();
   renderCatalogs();
   renderGoals();
@@ -2346,6 +2384,27 @@ document.getElementById("add-proj").addEventListener("submit", async (e) => {
   await load();
 });
 
+document.getElementById("add-idea").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = document.getElementById("ni-title").value.trim();
+  if (!title) return;
+  const raw = document.getElementById("ni-client").value;
+  const cid = raw === "__new__" ? "" : raw;
+  const out = await api("projects", {
+    title,
+    status: "idea",
+    notes: "",
+    area: !cid || cid === "cli-buro" ? "бюро" : "работа",
+    client_id: cid
+  });
+  if (!out || !out.ok) {
+    toast("Идея не сохранилась");
+    return;
+  }
+  e.target.reset();
+  await load();
+});
+
 document.getElementById("add-goal").addEventListener("submit", async (e) => {
   e.preventDefault();
   const title = document.getElementById("ng-title").value.trim();
@@ -2373,5 +2432,9 @@ bindClientProject(document.getElementById("nt-client"), document.getElementById(
 const npClient = document.getElementById("np-client");
 if (npClient) {
   npClient.addEventListener("change", () => maybeNewClient(npClient, null));
+}
+const niClient = document.getElementById("ni-client");
+if (niClient) {
+  niClient.addEventListener("change", () => maybeNewClient(niClient, null));
 }
 load();

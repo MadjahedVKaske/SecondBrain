@@ -65,6 +65,7 @@ header('Cache-Control: no-store');
     </header>
     <nav class="tabs">
       <a href="#tasks">Задачи</a>
+      <a href="#ideas">Идеи</a>
       <a href="#calendar">Календарь</a>
       <a href="#projects">Проекты</a>
       <a href="#goals">Цели</a>
@@ -103,6 +104,18 @@ header('Cache-Control: no-store');
       <div class="col">
         <div id="task-board"></div>
       </div>
+    </section>
+
+    <section class="page" id="p-ideas">
+      <form class="form form-idea" id="add-idea">
+        <label class="fld fld-title"><span>идея</span>
+          <input id="ni-title" type="text" placeholder="что стоит попробовать" required /></label>
+        <label class="fld"><span>клиент</span>
+          <select id="ni-client"></select></label>
+        <button type="submit">Сохранить</button>
+      </form>
+      <p class="sub">Быстрый входящий список. Созревшую идею переводи в бэклог — она появится в проектах.</p>
+      <div class="ideas" id="ideas"></div>
     </section>
 
     <section class="page" id="p-calendar">
