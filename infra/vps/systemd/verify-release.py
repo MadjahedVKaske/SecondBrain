@@ -41,6 +41,7 @@ def extract_root_owned(archive: Path, release: Path) -> None:
                 target = release.joinpath(*parts)
                 if member.isdir():
                     target.mkdir(mode=0o755, parents=True, exist_ok=True)
+                    os.chmod(target, 0o755)
                     continue
                 if not member.isreg() or member.size > 100 * 1024 * 1024:
                     fail("archive contains a link, special file, or oversized member")
@@ -58,6 +59,11 @@ def extract_root_owned(archive: Path, release: Path) -> None:
                 fd = os.open(target, flags, mode)
                 with source, os.fdopen(fd, "wb") as output:
                     shutil.copyfileobj(source, output)
+                # The root wrapper uses umask 077 for staging. Restore the
+                # intended root-owned modes explicitly so Docker COPY does not
+                # produce root-only application files; sealing removes write
+                # bits after verification.
+                os.chmod(target, mode)
     except BaseException:
         shutil.rmtree(release, ignore_errors=True)
         raise
