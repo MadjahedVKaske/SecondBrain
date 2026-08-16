@@ -1,0 +1,7 @@
+infra/vps/**/*.sh text eol=lf
+infra/vps/**/*.py text eol=lf
+infra/vps/**/Dockerfile text eol=lf
+infra/vps/systemd/secondbrain-operator text eol=lf
+infra/vps/systemd/*.service text eol=lf
+infra/vps/systemd/*.timer text eol=lf
+infra/vps/systemd/*.sudoers text eol=lf
