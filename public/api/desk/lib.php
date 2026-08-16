@@ -88,11 +88,21 @@ function desk_pdo(): ?PDO
         return null;
     }
     $host = (string)($cfg['db_host'] ?? 'localhost');
+    $port = (int)($cfg['db_port'] ?? 0);
+    if ($port <= 0 && preg_match('/^(.+):(\d+)$/', $host, $match)) {
+        $host = $match[1];
+        $port = (int)$match[2];
+    }
     $user = (string)($cfg['db_user'] ?? '');
     $pass = (string)($cfg['db_pass'] ?? '');
     try {
+        $dsn = "mysql:host={$host};";
+        if ($port > 0) {
+            $dsn .= "port={$port};";
+        }
+        $dsn .= "dbname={$name};charset=utf8mb4";
         $pdo = new PDO(
-            "mysql:host={$host};dbname={$name};charset=utf8mb4",
+            $dsn,
             $user,
             $pass,
             [

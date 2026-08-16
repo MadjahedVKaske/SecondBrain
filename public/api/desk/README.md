@@ -18,14 +18,18 @@
 python scripts/desk_pull_prod.py
 python scripts/desk_dump_prod.py
 
-# docker (после D2)
-cd docker
-docker compose -f desk-compose.yml up -d --build
+# native Windows runtime
+powershell -ExecutionPolicy Bypass -File scripts/mysql_local_start.ps1
+powershell -ExecutionPolicy Bypass -File scripts/desk_local_start.ps1
+powershell -ExecutionPolicy Bypass -File scripts/desk_local_open.ps1
 ```
 
 Стол: `http://localhost:8080/desk/?k=dev-local`
 
 Конфиг docker: `docker/desk-config.local.php` → монтируется как `api/desk/config.php`.
+
+Локальные PHP/MySQL runtime и реальные конфиги лежат в `.local/` и `.secrets/`, Git их не отслеживает.
+Проверка: `powershell -ExecutionPolicy Bypass -File scripts/desk_local_status.ps1`.
 
 ## Синк Tasks (legacy)
 

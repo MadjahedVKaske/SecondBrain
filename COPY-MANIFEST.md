@@ -38,4 +38,11 @@
 - база `desk` импортирована из локального prod-дампа: 13 таблиц;
 - управление: `scripts/mysql_local_start.ps1`, `mysql_local_status.ps1`, `mysql_local_stop.ps1`.
 
+## Локальный web
+
+- PHP 8.5.9 NTS установлен в `.local/php/`, официальный SHA256 проверен;
+- Second Brain работает на `http://127.0.0.1:8080/desk/`;
+- управление: `scripts/desk_local_start.ps1`, `desk_local_status.ps1`, `desk_local_stop.ps1`;
+- `scripts/desk_local_open.ps1` открывает авторизованный локальный URL без хранения токена в Git.
+
 Изменения выполняются только внутри рабочего корня. Исходный проект Cursor не изменяется.

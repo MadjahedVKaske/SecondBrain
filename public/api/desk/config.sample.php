@@ -12,6 +12,7 @@ return [
 
     // Пустой db_name = JSON-файл на VPS. MySQL не обязателен.
     'db_host' => 'localhost',
+    'db_port' => 3306,
     'db_name' => '',
     'db_user' => '',
     'db_pass' => '',
