@@ -59,7 +59,10 @@ def release_sha(ref: str) -> str:
 
 
 def ensure_clean() -> None:
-    if run("git", "status", "--porcelain"):
+    # Releases are built from an immutable commit via git archive. Local
+    # ignored/untracked diagnostics and encrypted restore drills cannot enter
+    # that archive, so only tracked modifications are a packaging blocker.
+    if run("git", "status", "--porcelain", "--untracked-files=no"):
         raise RuntimeError("refusing to package a dirty tracked worktree")
 
 
