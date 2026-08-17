@@ -9,12 +9,19 @@ import os
 import shlex
 import subprocess
 import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[3]
+COMMAND_FILE = ROOT / ".secrets" / "tg" / "operator_command"
 
 
 def operator_command() -> list[str]:
     raw = os.environ.get("TG_OPERATOR_COMMAND", "").strip()
+    if not raw and COMMAND_FILE.is_file():
+        raw = COMMAND_FILE.read_text(encoding="utf-8").strip()
     if not raw:
-        raise RuntimeError("TG_OPERATOR_COMMAND is required; public TG admin transport is disabled")
+        raise RuntimeError("TG operator command is required; public TG admin transport is disabled")
     command = shlex.split(raw)
     if not command:
         raise RuntimeError("TG_OPERATOR_COMMAND is invalid")
@@ -22,14 +29,14 @@ def operator_command() -> list[str]:
 
 
 def send(text: str, chat_id: int) -> bool:
-    if chat_id <= 0:
+    if chat_id == 0:
         raise RuntimeError("--chat-id is required")
     payload = {"text": text, "chat_id": chat_id}
     encoded = base64.urlsafe_b64encode(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
     result = subprocess.run(
         [*operator_command(), "tg-send", encoded], stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8",
-        errors="replace", check=False, timeout=60,
+        errors="replace", check=False, timeout=60, cwd=ROOT,
     )
     try:
         return result.returncode == 0 and bool(json.loads(result.stdout).get("ok"))
