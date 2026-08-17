@@ -1,9 +1,9 @@
 # Second Brain: clean VPS runtime
 
-This is a versioned, Desk-only production contract for a **new** VPS. It has
-no credentials and does not contact or migrate any prior server. Telegram is
-intentionally absent: no bot source, token, config, poller, or data volume is
-included until a separately reviewed secure phase.
+This is a versioned production contract for a **new** VPS. It has no
+credentials and does not contact or migrate any prior server. Desk is the
+default runtime; Telegram is an optional, separately provisioned internal
+profile with its own secret files and persistent state.
 
 ## Network and services
 
@@ -17,6 +17,9 @@ included until a separately reviewed secure phase.
 - `backup` is disabled unless the `ops` profile is explicitly run. It creates
   encrypted Desk-MySQL (including routines, triggers and events) plus
   private-brain backups; retention defaults to 30 days.
+- `tg` is disabled until root creates `shared/tg-enabled`. It publishes no
+  host port, polls Telegram over HTTPS, and is reachable operationally only
+  through the constrained SSH operator.
 
 The release contains `public/desk` plus only the Desk API runtime files
 (`index.php`, `lib.php`, `schema.sql`); sample config, migration utilities and
@@ -36,9 +39,9 @@ all other APIs are absent.
 ```
 
 Required secret files are `desk.config.php`, `mysql_app_password`,
-`mysql_root_password`, and `backup_age_recipient`. See
-[`secrets.example/README.md`](secrets.example/README.md); do not create a
-Telegram secret in this phase.
+`mysql_root_password`, and `backup_age_recipient`. The optional TG profile
+also needs root-owned `tg_bot_token`, `tg_config.json`, and `tg_wake_token`.
+All remain only under `shared/secrets/` and never enter a release archive.
 
 ## First boot: root-mediated deployment
 
