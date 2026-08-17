@@ -133,6 +133,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(404,{"error":"not_found"})
 
 def main():
+    global last_poll
     DATA.mkdir(mode=0o700,parents=True,exist_ok=True); (DATA/"uploads").mkdir(mode=0o700,exist_ok=True)
     lock_path=DATA/".state.lock"
     if lock_path.exists() and (lock_path.is_symlink() or not lock_path.is_file()): raise RuntimeError("invalid state lock")
