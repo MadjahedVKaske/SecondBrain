@@ -21,9 +21,7 @@ case "$action" in
         echo "usage: secondbrain-operator backup" >&2
         exit 64
     fi
-    exec /usr/bin/docker compose --project-name secondbrain \
-      --env-file "$root/shared/runtime.env" \
-      -f "$root/current/infra/vps/compose.yml" --profile ops run --rm backup
+    exec /usr/local/lib/secondbrain/backup-host.sh
     ;;
   initial-import)
     case "$sha" in ''|*[!0-9a-f]*) valid_sha=0 ;; *) valid_sha=1 ;; esac
@@ -36,11 +34,18 @@ case "$action" in
     test "$(stat -c '%U:%G:%a' "$import_dir/approved.sql.zst")" = "root:root:600"
     test "$(stat -c '%U:%G:%a' "$import_dir/INITIAL_IMPORT_APPROVED")" = "root:root:600"
     test "$(cat "$import_dir/INITIAL_IMPORT_APPROVED")" = "$sha"
-    INITIAL_DUMP_SHA256="$sha" INITIAL_IMPORT_CONFIRM=EMPTY_DB_ONLY \
-      /usr/bin/docker compose --project-name secondbrain \
-      --env-file "$root/shared/runtime.env" \
-      -f "$root/current/infra/vps/compose.yml" --profile import run --rm \
-      import-approved /imports/approved.sql.zst
+    actual="$(sha256sum "$import_dir/approved.sql.zst" | awk '{print $1}')"
+    test "$actual" = "$sha" || { echo "import: dump checksum mismatch" >&2; exit 78; }
+    db=secondbrain-db-1
+    tables="$(/usr/bin/docker exec "$db" sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql_root_password)" exec mysql -N -u root desk -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE=CHAR(66,65,83,69,32,84,65,66,76,69)"')"
+    for table in $tables; do
+        case "$table" in ''|*[!A-Za-z0-9_]*) echo "import: unsafe table name" >&2; exit 78 ;; esac
+        count="$(/usr/bin/docker exec "$db" sh -c "MYSQL_PWD=\"\$(cat /run/secrets/mysql_root_password)\" exec mysql -N -u root desk -e \"SELECT COUNT(*) FROM $table\"")"
+        test "$count" = "0" || { echo "import: target database is not empty" >&2; exit 78; }
+    done
+    zstd -dc "$import_dir/approved.sql.zst" | /usr/bin/docker exec -i "$db" sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql_root_password)" exec mysql -u root desk'
+    count="$(/usr/bin/docker exec "$db" sh -c 'MYSQL_PWD="$(cat /run/secrets/mysql_root_password)" exec mysql -N -u root desk -e "SELECT COUNT(*) FROM desk_tasks"')"
+    printf 'import: completed; desk_tasks=%s\n' "$count"
     rm -f "$import_dir/INITIAL_IMPORT_APPROVED" "$import_dir/approved.sql.zst"
     ;;
   *)
