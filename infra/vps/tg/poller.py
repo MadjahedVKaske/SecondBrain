@@ -7,9 +7,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 DATA = Path("/data")
-TOKEN_FILE = Path("/run/secrets/tg_bot_token")
-CONFIG_FILE = Path("/run/secrets/tg_config")
-WAKE_TOKEN_FILE = Path("/run/secrets/tg_wake_token")
+TOKEN_FILE = Path("/run/tg-secrets/tg_bot_token")
+CONFIG_FILE = Path("/run/tg-secrets/tg_config")
+WAKE_TOKEN_FILE = Path("/run/tg-secrets/tg_wake_token")
 MAX_MEDIA = 20 * 1024 * 1024
 MAX_UPLOADS = 512 * 1024 * 1024
 stop = threading.Event()

@@ -93,6 +93,10 @@ services:
 
   tg:
     <<: *hardening
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
     profiles: ["tg"]
     build:
       context: ../..
@@ -107,6 +111,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:mode=1777
+      - /run/tg-secrets:mode=0755
     mem_limit: 256m
     cpus: "0.50"
     healthcheck:
