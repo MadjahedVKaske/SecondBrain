@@ -116,6 +116,30 @@ rollback refuses to rebuild it and reuses the previously accepted image. On
 failed start/health it restores the preceding symlink when present. Rollback changes code only; MySQL restoration is a separate deliberate recovery operation
 because it can discard later writes.
 
+After the separately approved TG phase, install
+`systemd/tg-operator.py` as `/usr/local/lib/secondbrain/tg-operator.py`,
+`root:root 0755`. The deploy account then has only two additional audited
+commands: `secondbrain-operator tg-inbox [1..100]` and
+`secondbrain-operator tg-send <base64url-json>`. They use `docker exec` inside
+the TG container; Caddy exposes no TG API and neither command emits a Bot token
+or an admin credential.
+
+Install `systemd/desk-operator.py` beside it as
+`/usr/local/lib/secondbrain/desk-operator.py`, `root:root 0755`. It exposes
+only `desk-wake-list [1..100]`, `desk-wake-ack <uuid>`, and
+`desk-sync <base64url-json>` through the root wrapper. Each command validates
+its input and invokes a fixed PHP program inside the app container, rather
+than the public Desk HTTP API. Browser CSRF protection therefore remains in
+force for every public POST/DELETE route.
+
+For an off-host recovery drill, invoke `backup/restore-verify.sh` with a
+non-existent absolute `RESTORE_DRILL_TARGET`. It creates that target with
+private permissions, extracts the private archives, and validates TG
+`offset.json`/`inbox.json` when present. SQL import is additionally gated on
+the literal disposable service name `restore-db` and
+`RESTORE_DRILL_CONFIRM=FRESH_DISPOSABLE_TARGET`; a live hostname, IP address,
+localhost, or the production runtime directory is rejected.
+
 No release is accepted until local syntax/config checks, a review of the
 root-owned wrapper and firewall, the first health check, and a restore drill
 all pass. Registry images and base images are pinned by recorded digest.

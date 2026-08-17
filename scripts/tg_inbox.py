@@ -4,7 +4,7 @@ from pathlib import Path
 import runpy
 import sys
 
-CANON = Path.home() / ".cursor" / "skills" / "buro1-tg-inbox" / "scripts" / "tg_inbox.py"
+CANON = Path(__file__).resolve().parents[1] / "tools" / "buro1-tg-inbox" / "scripts" / "tg_inbox.py"
 if not CANON.is_file():
     raise SystemExit(f"нет скилла: {CANON}")
 sys.argv[0] = str(CANON)

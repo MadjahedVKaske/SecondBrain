@@ -50,6 +50,22 @@ grep -Eq '^MYSQL_IMAGE=.*@sha256:[0-9a-f]{64}$' "$shared/image-digests"
 set -a
 . "$shared/runtime.env"
 set +a
+compose_file="$release/infra/vps/compose.yml"
+compose() {
+  if [ -f "$shared/tg-enabled" ]; then
+    docker compose --profile tg --project-name secondbrain --env-file "$shared/runtime.env" -f "$compose_file" "$@"
+  else
+    docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$compose_file" "$@"
+  fi
+}
+if [ -f "$shared/tg-enabled" ]; then
+  test "$(stat -c '%U:%G:%a' "$shared/tg-enabled")" = "root:root:600"
+  test -n "${TG_DATA_DIR:-}" && test -d "$TG_DATA_DIR"
+  test "$(stat -c '%U:%G:%a' "$TG_DATA_DIR")" = "secondbrain:secondbrain:700"
+  for name in tg_bot_token tg_config.json tg_wake_token; do
+    test "$(stat -c '%U:%G:%a' "$SECRETS_DIR/$name")" = "root:root:600"
+  done
+fi
 grep -Fx "CADDY_IMAGE=$CADDY_IMAGE" "$shared/image-digests" >/dev/null
 grep -Fx "MYSQL_IMAGE=$MYSQL_IMAGE" "$shared/image-digests" >/dev/null
 APP_IMAGE="secondbrain-app:$sha"
@@ -57,23 +73,27 @@ export APP_IMAGE
 if [ "$action" = rollback ]; then
   docker image inspect "$APP_IMAGE" >/dev/null
 fi
-docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$release/infra/vps/compose.yml" config -q
+compose config -q
 
 old=""
 if [ -L "$current" ]; then old="$(readlink -f "$current")"; fi
 ln -s "$release" "$root/.current-next"
 mv -Tf "$root/.current-next" "$current"
+compose_file="$current/infra/vps/compose.yml"
 
 release_ready() {
   mode="$1"
   if [ "$mode" = build ]; then
-    docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$current/infra/vps/compose.yml" up -d --build --remove-orphans
+    compose up -d --build --remove-orphans
     docker image inspect "$APP_IMAGE" >/dev/null
   else
-    docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$current/infra/vps/compose.yml" up -d --no-build --remove-orphans
+    compose up -d --no-build --remove-orphans
   fi
   docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$current/infra/vps/compose.yml" exec -T app \
     curl --fail --silent http://127.0.0.1/api/desk/health >/dev/null
+  if [ -f "$shared/tg-enabled" ]; then
+    compose exec -T tg python3 -c "import json,urllib.request; x=json.load(urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)); assert x.get('ok') and x.get('poll_recent')"
+  fi
   resolved="$(getent ahostsv4 "$BRAIN_DOMAIN" | awk '{print $1}' | sort -u)"
   test "$resolved" = "72.56.66.161" || {
     echo "secondbrain: DNS does not resolve exclusively to the approved VPS" >&2
@@ -93,11 +113,12 @@ if ! release_ready "$mode"; then
     export APP_IMAGE
     ln -s "$old" "$root/.current-rollback"
     mv -Tf "$root/.current-rollback" "$current"
+    compose_file="$current/infra/vps/compose.yml"
     docker image inspect "$APP_IMAGE" >/dev/null 2>&1 \
-      && docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$current/infra/vps/compose.yml" up -d --no-build --remove-orphans \
+      && compose up -d --no-build --remove-orphans \
       || true
   else
-    docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$release/infra/vps/compose.yml" down || true
+    compose down || true
     rm -f "$current"
   fi
   echo "secondbrain: release failed, prior symlink restored when available" >&2

@@ -1,5 +1,4 @@
 {
-  "base_url": "http://127.0.0.1/api/tg",
-  "admin_token": "change-me-long-random",
-  "chat_id": 0
+  "note": "No Telegram token or public admin API is used. Set TG_OPERATOR_COMMAND in the local shell.",
+  "operator_command_example": "ssh -F C:/path/to/known-host-checked-config brain-deploy@brain.example.net sudo /usr/local/sbin/secondbrain-operator"
 }

@@ -1176,8 +1176,9 @@ function desk_csrf_ok(): bool
 
 function desk_enqueue_wake(array $payload, string $kind = 'tg'): array
 {
+    $forcedId = (string)($payload['wake_id'] ?? '');
     $item = [
-        'id' => desk_uuid(),
+        'id' => preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $forcedId) ? $forcedId : desk_uuid(),
         'kind' => $kind,
         'payload' => $payload,
         'status' => 'pending',
@@ -1185,7 +1186,7 @@ function desk_enqueue_wake(array $payload, string $kind = 'tg'): array
     ];
     $db = desk_pdo();
     if ($db) {
-        $st = $db->prepare('INSERT INTO desk_wake (id,kind,payload,status,created_at) VALUES (?,?,?,?,?)');
+        $st = $db->prepare('INSERT INTO desk_wake (id,kind,payload,status,created_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
         $st->execute([$item['id'], $kind, json_encode($payload, JSON_UNESCAPED_UNICODE), 'pending', gmdate('Y-m-d H:i:s')]);
     } else {
         $store = desk_load_store();

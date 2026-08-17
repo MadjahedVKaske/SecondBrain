@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import signal
+import subprocess
 import sys
 import time
 import traceback
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-API = os.environ.get("DESK_API", "http://45.10.42.191/api/desk").rstrip("/")
-TOKEN = os.environ.get("DESK_ADMIN_TOKEN", "")
-INBOX = Path(r"C:\Cursor\Tasks\_inbox")
+WORKSPACE = Path(__file__).resolve().parents[1]
+INBOX = Path(os.environ.get("DESK_WATCH_INBOX", str(WORKSPACE / "_tmp" / "desk-watch-inbox")))
 SEEN = INBOX / "seen.json"
 ALIVE = INBOX / "watcher-alive.json"
-LOG_FILE = Path(r"C:\Cursor\buro1-insight-hub\_tmp\desk-watch.log")
+LOG_FILE = Path(os.environ.get("DESK_WATCH_LOG", str(WORKSPACE / "_tmp" / "desk-watch.log")))
 INTERVAL = int(os.environ.get("DESK_WATCH_SEC", "8"))
 
 _stop = False
@@ -113,27 +113,54 @@ def write_alive() -> None:
             pass
 
 
+def operator_command() -> list[str]:
+    raw = os.environ.get("DESK_OPERATOR_COMMAND", "").strip()
+    if not raw:
+        raise RuntimeError("DESK_OPERATOR_COMMAND is required; public Desk mutation transport is disabled")
+    command = shlex.split(raw)
+    if not command:
+        raise RuntimeError("DESK_OPERATOR_COMMAND is invalid")
+    return command
+
+
+def operator_call(action: str, argument: str) -> dict:
+    try:
+        result = subprocess.run(
+            [*operator_command(), action, argument],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError("desk_operator_unavailable") from exc
+    if result.returncode:
+        raise RuntimeError("desk_operator_unavailable")
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("desk_operator_invalid_response") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError("desk_operator_invalid_response")
+    return payload
+
+
 def get_pending() -> list:
-    req = urllib.request.Request(
-        f"{API}/wake",
-        headers={"X-Yakor-Token": TOKEN},
-    )
-    with urllib.request.urlopen(req, timeout=12) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-    return data.get("items") or []
+    data = operator_call("desk-wake-list", "100")
+    items = data.get("items") if data.get("ok") is True else None
+    if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        raise RuntimeError("desk_operator_invalid_response")
+    return items
 
 
 def ack(wid: str) -> None:
-    req = urllib.request.Request(
-        f"{API}/wake/{wid}/ack",
-        data=b"{}",
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "X-Yakor-Token": TOKEN,
-        },
-    )
-    urllib.request.urlopen(req, timeout=12).read()
+    data = operator_call("desk-wake-ack", wid)
+    if data.get("ok") is not True:
+        raise RuntimeError("desk_operator_ack_failed")
 
 
 def load_seen() -> set[str]:
@@ -209,7 +236,7 @@ def main() -> None:
     INBOX.mkdir(parents=True, exist_ok=True)
     seen = load_seen()
     once = "--once" in sys.argv
-    print(f"desk_watch poll {API}/wake every {INTERVAL}s (AGENT_LOOP_WAKE_DESK)", flush=True)
+    print(f"desk_watch poll SSH operator every {INTERVAL}s (AGENT_LOOP_WAKE_DESK)", flush=True)
 
     while not _stop:
         try:

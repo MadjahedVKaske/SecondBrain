@@ -23,6 +23,51 @@ case "$action" in
     fi
     exec /usr/local/lib/secondbrain/backup-host.sh
     ;;
+  tg-inbox)
+    limit="${2:-20}"
+    case "$limit" in ''|*[!0-9]*) echo "usage: secondbrain-operator tg-inbox [1..100]" >&2; exit 64 ;; esac
+    if [ "$#" -gt 2 ] || [ "$limit" -lt 1 ] || [ "$limit" -gt 100 ]; then
+        echo "usage: secondbrain-operator tg-inbox [1..100]" >&2
+        exit 64
+    fi
+    exec /usr/bin/python3 /usr/local/lib/secondbrain/tg-operator.py inbox "$limit"
+    ;;
+  tg-send)
+    payload="${2:-}"
+    case "$payload" in ''|*[!A-Za-z0-9_-]*) echo "usage: secondbrain-operator tg-send <base64url-json>" >&2; exit 64 ;; esac
+    if [ "$#" -ne 2 ] || [ "${#payload}" -gt 6000 ]; then
+        echo "usage: secondbrain-operator tg-send <base64url-json>" >&2
+        exit 64
+    fi
+    exec /usr/bin/python3 /usr/local/lib/secondbrain/tg-operator.py send "$payload"
+    ;;
+  desk-wake-list)
+    limit="${2:-20}"
+    case "$limit" in ''|*[!0-9]*) echo "usage: secondbrain-operator desk-wake-list [1..100]" >&2; exit 64 ;; esac
+    if [ "$#" -gt 2 ] || [ "$limit" -lt 1 ] || [ "$limit" -gt 100 ]; then
+        echo "usage: secondbrain-operator desk-wake-list [1..100]" >&2
+        exit 64
+    fi
+    exec /usr/bin/python3 /usr/local/lib/secondbrain/desk-operator.py wake-list "$limit"
+    ;;
+  desk-wake-ack)
+    wake_id="${2:-}"
+    case "$wake_id" in ''|*[!0-9A-Fa-f-]*) echo "usage: secondbrain-operator desk-wake-ack <uuid>" >&2; exit 64 ;; esac
+    if [ "$#" -ne 2 ] || [ "${#wake_id}" -ne 36 ]; then
+        echo "usage: secondbrain-operator desk-wake-ack <uuid>" >&2
+        exit 64
+    fi
+    exec /usr/bin/python3 /usr/local/lib/secondbrain/desk-operator.py wake-ack "$wake_id"
+    ;;
+  desk-sync)
+    payload="${2:-}"
+    case "$payload" in ''|*[!A-Za-z0-9_-]*) echo "usage: secondbrain-operator desk-sync <base64url-json>" >&2; exit 64 ;; esac
+    if [ "$#" -ne 2 ] || [ "${#payload}" -gt 262144 ]; then
+        echo "usage: secondbrain-operator desk-sync <base64url-json>" >&2
+        exit 64
+    fi
+    exec /usr/bin/python3 /usr/local/lib/secondbrain/desk-operator.py sync "$payload"
+    ;;
   initial-import)
     case "$sha" in ''|*[!0-9a-f]*) valid_sha=0 ;; *) valid_sha=1 ;; esac
     if [ "$#" -ne 2 ] || [ "$valid_sha" -ne 1 ] || [ "${#sha}" -ne 64 ]; then
@@ -49,7 +94,7 @@ case "$action" in
     rm -f "$import_dir/INITIAL_IMPORT_APPROVED" "$import_dir/approved.sql.zst"
     ;;
   *)
-    echo "usage: secondbrain-operator {deploy|rollback|backup|initial-import}" >&2
+    echo "usage: secondbrain-operator {deploy|rollback|backup|tg-inbox|tg-send|desk-wake-list|desk-wake-ack|desk-sync|initial-import}" >&2
     exit 64
     ;;
 esac

@@ -42,6 +42,21 @@ if (preg_match('#/api/desk(?:/(.*))?$#', $path, $m)) {
     $rest = isset($m[1]) ? trim($m[1], '/') : '';
 }
 
+// Private bridge used only by the TG poller on the Docker-internal network.
+// It deliberately uses a dedicated host-only secret, never a Desk browser key.
+if ($method === 'POST' && ($rest === 'tg-wake' || $rest === 'tg-wake/')) {
+    $expected = (string)(desk_cfg()['tg_wake_token'] ?? '');
+    $provided = (string)($_SERVER['HTTP_X_SECONDBRAIN_TG'] ?? '');
+    if ($expected === '' || !hash_equals($expected, $provided)) {
+        desk_respond(['error' => 'not_found'], 404);
+    }
+    $raw = desk_body();
+    if (trim((string)($raw['tg_id'] ?? '')) === '') {
+        desk_respond(['error' => 'bad_request'], 400);
+    }
+    desk_respond(['ok' => true, 'item' => desk_enqueue_wake($raw, 'tg')]);
+}
+
 if (desk_production_runtime() && in_array($method, ['POST', 'DELETE'], true) && !desk_csrf_ok()) {
     desk_respond(['error' => 'csrf'], 403);
 }

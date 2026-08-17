@@ -89,6 +89,35 @@ services:
     networks:
       - edge
       - db_internal
+      - tg_internal
+
+  tg:
+    <<: *hardening
+    profiles: ["tg"]
+    build:
+      context: ../..
+      dockerfile: infra/vps/tg/Dockerfile
+    restart: unless-stopped
+    secrets:
+      - tg_bot_token
+      - tg_config
+      - tg_wake_token
+    volumes:
+      - ${TG_DATA_DIR:-/nonexistent}:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    mem_limit: 256m
+    cpus: "0.50"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import json,urllib.request; x=json.load(urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)); assert x.get('ok') and x.get('poll_recent')"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+    networks:
+      - tg_internal
+      - egress
 
   db:
     <<: *hardening
@@ -182,6 +211,12 @@ secrets:
     file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/mysql_root_password
   backup_age_recipient:
     file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/backup_age_recipient
+  tg_bot_token:
+    file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/tg_bot_token
+  tg_config:
+    file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/tg_config.json
+  tg_wake_token:
+    file: ${SECRETS_DIR:?set SECRETS_DIR in runtime.env}/tg_wake_token
 
 volumes:
   mysql_data:
@@ -197,3 +232,5 @@ networks:
     internal: true
   # Only Caddy needs external egress for ACME and clients.
   egress:
+  tg_internal:
+    internal: true
