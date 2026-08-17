@@ -49,8 +49,14 @@ print('{"ok":true}')
 
 def run_container(program: str, argument: str, action: str) -> int:
     try:
+        command = [DOCKER, "exec", "-i"]
+        # The poller owns /data as UID 10001. Root inside this hardened
+        # container has no DAC_OVERRIDE and therefore must not read it.
+        if action == "inbox":
+            command.extend(["--user", "10001:10001"])
+        command.extend([CONTAINER, "python3", "-c", program, argument])
         result = subprocess.run(
-            [DOCKER, "exec", "-i", CONTAINER, "python3", "-c", program, argument],
+            command,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
