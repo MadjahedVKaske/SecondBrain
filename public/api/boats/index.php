@@ -16,9 +16,10 @@ function boats_respond($data, int $code = 200): void
 
 function boats_cfg(): array
 {
-    $path = __DIR__ . '/config.php';
+    $path = (string)(getenv('BOATS_CONFIG_PATH') ?: (__DIR__ . '/config.php'));
     if (!is_file($path)) {
-        $path = __DIR__ . '/config.sample.php';
+        http_response_code(503);
+        exit;
     }
     $cfg = require $path;
     return is_array($cfg) ? $cfg : [];
@@ -26,7 +27,7 @@ function boats_cfg(): array
 
 function boats_data_dir(): string
 {
-    $dir = __DIR__ . '/_data';
+    $dir = (string)(getenv('BOATS_DATA_DIR') ?: (__DIR__ . '/_data'));
     if (!is_dir($dir)) {
         @mkdir($dir, 0775, true);
     }
@@ -203,13 +204,7 @@ if (preg_match('#/api/boats(?:/(.*))?$#', $path, $m)) {
 }
 
 if ($method === 'GET' && ($rest === '' || $rest === 'health')) {
-    $extra = boats_load_json(boats_data_dir() . '/chats.json', ['users' => []]);
-    boats_respond([
-        'ok' => true,
-        'service' => 'boats-notify',
-        'pending' => $cfg['pending_usernames'] ?? ['Yarozemna'],
-        'caught' => array_keys((array)($extra['users'] ?? [])),
-    ]);
+    boats_respond(['ok' => true, 'service' => 'boats-notify']);
 }
 
 if ($method === 'GET' && ($rest === 'discover' || $rest === 'discover/')) {
@@ -219,6 +214,10 @@ if ($method === 'GET' && ($rest === 'discover' || $rest === 'discover/')) {
 
 if ($method === 'POST' && ($rest === '' || $rest === 'notify' || $rest === 'notify/')) {
     boats_require($cfg);
+    $length = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($length < 1 || $length > 16384) {
+        boats_respond(['error' => 'invalid body size'], 413);
+    }
     boats_discover($cfg);
     $raw = file_get_contents('php://input');
     $body = json_decode((string)$raw, true);

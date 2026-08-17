@@ -18,7 +18,11 @@
 
     @desk path /desk /desk/* /api/desk /api/desk/*
     @tg_bridge path /api/desk/tg-wake /api/desk/tg-wake/*
+    @boats_notify path /api/boats/notify /api/boats/notify/
     respond @tg_bridge "not found" 404
+    handle @boats_notify {
+        reverse_proxy boats:80
+    }
     handle @desk {
         reverse_proxy app:80
     }

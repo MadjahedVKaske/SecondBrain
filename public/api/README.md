@@ -69,5 +69,6 @@ Header: `X-Yakor-Token: <local-secret>`
 
 VPS-релей для `katervl.ru`: сайт на REG.RU шлёт бронь сюда, бот пишет в Telegram из Амстердама.
 
-`POST http://45.10.42.191/api/boats/notify`  
+Target after the isolated boats profile is provisioned:
+`POST https://brain.buro1.tech/api/boats/notify`
 Header `X-Boats-Token` (не bot_token). Body `{"text":"..."}`.

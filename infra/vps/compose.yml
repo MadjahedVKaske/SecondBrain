@@ -46,6 +46,7 @@ services:
     networks:
       - edge
       - egress
+      - boats_internal
 
   app:
     <<: *hardening
@@ -122,6 +123,40 @@ services:
       start_period: 20s
     networks:
       - tg_internal
+      - egress
+
+  boats:
+    <<: *hardening
+    profiles: ["boats"]
+    build:
+      context: ../..
+      dockerfile: infra/vps/boats/Dockerfile
+    restart: unless-stopped
+    environment:
+      BOATS_CONFIG_PATH: /run/boats/config.php
+      BOATS_DATA_DIR: /data
+    volumes:
+      - ${BOATS_SECRETS_DIR:-/nonexistent}/config.php:/run/boats-input/config.php:ro
+      - ${BOATS_DATA_DIR:-/nonexistent}:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /run/boats:uid=33,gid=33,mode=0750
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    mem_limit: 192m
+    cpus: "0.25"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1/api/boats/health >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+    networks:
+      - boats_internal
       - egress
 
   db:
@@ -238,4 +273,6 @@ networks:
   # Only Caddy needs external egress for ACME and clients.
   egress:
   tg_internal:
+    internal: true
+  boats_internal:
     internal: true

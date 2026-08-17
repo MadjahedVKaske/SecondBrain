@@ -52,8 +52,12 @@ set -a
 set +a
 compose_file="$release/infra/vps/compose.yml"
 compose() {
-  if [ -f "$shared/tg-enabled" ]; then
+  if [ -f "$shared/tg-enabled" ] && [ -f "$shared/boats-enabled" ]; then
+    docker compose --profile tg --profile boats --project-name secondbrain --env-file "$shared/runtime.env" -f "$compose_file" "$@"
+  elif [ -f "$shared/tg-enabled" ]; then
     docker compose --profile tg --project-name secondbrain --env-file "$shared/runtime.env" -f "$compose_file" "$@"
+  elif [ -f "$shared/boats-enabled" ]; then
+    docker compose --profile boats --project-name secondbrain --env-file "$shared/runtime.env" -f "$compose_file" "$@"
   else
     docker compose --project-name secondbrain --env-file "$shared/runtime.env" -f "$compose_file" "$@"
   fi
@@ -65,6 +69,13 @@ if [ -f "$shared/tg-enabled" ]; then
   for name in tg_bot_token tg_config.json tg_wake_token; do
     test "$(stat -c '%U:%G:%a' "$SECRETS_DIR/$name")" = "root:root:600"
   done
+fi
+if [ -f "$shared/boats-enabled" ]; then
+  test "$(stat -c '%U:%G:%a' "$shared/boats-enabled")" = "root:root:600"
+  test -n "${BOATS_SECRETS_DIR:-}" && test -n "${BOATS_DATA_DIR:-}"
+  test "$(stat -c '%U:%G:%a' "$BOATS_SECRETS_DIR")" = "root:root:700"
+  test "$(stat -c '%U:%G:%a' "$BOATS_SECRETS_DIR/config.php")" = "root:root:600"
+  test "$(stat -c '%U:%G:%a' "$BOATS_DATA_DIR")" = "www-data:www-data:700"
 fi
 grep -Fx "CADDY_IMAGE=$CADDY_IMAGE" "$shared/image-digests" >/dev/null
 grep -Fx "MYSQL_IMAGE=$MYSQL_IMAGE" "$shared/image-digests" >/dev/null
@@ -93,6 +104,9 @@ release_ready() {
     curl --fail --silent http://127.0.0.1/api/desk/health >/dev/null
   if [ -f "$shared/tg-enabled" ]; then
     compose exec -T tg python3 -c "import json,urllib.request; x=json.load(urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5)); assert x.get('ok') and x.get('poll_recent')"
+  fi
+  if [ -f "$shared/boats-enabled" ]; then
+    compose exec -T boats curl --fail --silent http://127.0.0.1/api/boats/health >/dev/null
   fi
   resolved="$(getent ahostsv4 "$BRAIN_DOMAIN" | awk '{print $1}' | sort -u)"
   test "$resolved" = "72.56.66.161" || {
