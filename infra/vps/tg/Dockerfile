@@ -1,4 +1,4 @@
-FROM python:3.12.11-alpine3.21@sha256:0b37a58c173df2c801fb6d9fd6d36a61750d1d9390a7e29bf3bd52a2f914ea53
+FROM python:3.12.11-alpine3.21@sha256:0cf3dd9af1073f8555de9c29c912677fb08767ad9ca84bb3ad0bae4b5e903460
 
 RUN addgroup -S secondbrain && adduser -S -G secondbrain -u 10001 secondbrain
 COPY infra/vps/tg/poller.py /app/poller.py
