@@ -33,6 +33,7 @@ RELEASE_PATHS = (
     "public/api/desk/index.php",
     "public/api/desk/lib.php",
     "public/api/desk/schema.sql",
+    "public/api/boats",
     "infra/vps",
 )
 
@@ -80,6 +81,7 @@ def package(ref: str, destination: Path, signing_key: Path | None = None) -> tup
             release / "public/desk/index.php",
             release / "public/api/desk/index.php",
             release / "infra/vps/compose.yml",
+            release / "public/api/boats/index.php",
         ]
         if not all(p.is_file() for p in required):
             raise RuntimeError("release archive is missing a required Second Brain file")
