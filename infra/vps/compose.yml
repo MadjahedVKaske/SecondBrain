@@ -142,6 +142,8 @@ services:
     tmpfs:
       - /tmp:mode=1777
       - /run/boats:uid=33,gid=33,mode=0750
+      - /run/apache2:uid=33,gid=33,mode=0755
+      - /var/lock/apache2:uid=33,gid=33,mode=0755
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
