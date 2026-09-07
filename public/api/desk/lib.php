@@ -1929,23 +1929,27 @@ function desk_game_seed(PDO $db): void
     $now = desk_sql_now();
     $db->prepare("INSERT IGNORE INTO game_profile (id,avatar_key,created_at,updated_at) VALUES ('default','pixel-spark',?,?)")
         ->execute([$now, $now]);
+    // Four territories are enough to be mentally usable. Growth is a branch
+    // inside a territory, not a fifth place competing for the same attention.
     $skills = [
-        ['general', 'Общее', '#8b949e', 0],
-        ['clients', 'Клиентская работа', '#58a6ff', 1],
-        ['order', 'Организация порядка', '#66c7b2', 2],
+        ['clients', 'Дело', '#58a6ff', 0],
+        ['health', 'Тело', '#3fb950', 1],
+        ['order', 'Порядок', '#ffd166', 2],
         ['system', 'Система', '#a371f7', 3],
-        ['health', 'Здоровье', '#3fb950', 4],
-        ['learning', 'Обучение', '#d29922', 5],
     ];
-    $st = $db->prepare('INSERT IGNORE INTO game_skills (id,title,color,position,created_at,updated_at) VALUES (?,?,?,?,?,?)');
+    $st = $db->prepare('INSERT INTO game_skills (id,title,color,position,created_at,updated_at) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE title=VALUES(title), color=VALUES(color), position=VALUES(position), updated_at=VALUES(updated_at)');
     foreach ($skills as [$id, $title, $color, $position]) {
         $st->execute([$id, $title, $color, $position, $now, $now]);
     }
-    // Existing worlds are also reordered: order rituals precede system work.
-    $skillPosition = $db->prepare('UPDATE game_skills SET position = ?, updated_at = ? WHERE id = ?');
-    foreach ($skills as [$id, , , $position]) {
-        $skillPosition->execute([$position, $now, $id]);
-    }
+    // Migrate the early six-skill prototype without changing either XP amount
+    // or event history. Every former source receives one concrete territory.
+    $db->exec("UPDATE game_events SET skill_id = 'order' WHERE skill_id = 'general' AND source_type = 'habit' AND source_id = 'habit-home'");
+    $db->exec("UPDATE game_events SET skill_id = 'health' WHERE skill_id = 'general' AND source_type = 'habit' AND source_id = 'habit-sergey'");
+    $db->exec("UPDATE game_events SET skill_id = 'system' WHERE skill_id IN ('general','learning') AND source_type = 'habit' AND source_id = 'habit-daily-duolingo'");
+    $db->exec("UPDATE game_events SET skill_id = 'clients' WHERE skill_id = 'general' AND source_type IN ('task','checklist_item')");
+    $db->exec("UPDATE game_events SET skill_id = 'system' WHERE skill_id IN ('general','learning')");
+    $db->exec("UPDATE game_bindings SET skill_id = 'system' WHERE skill_id IN ('general','learning')");
+    $db->exec("DELETE FROM game_skills WHERE id IN ('general','learning')");
 
     // The daily loop is deliberately small and stable.  These rows are seeded
     // once; individual historical habit checks are never rewritten.
@@ -2060,7 +2064,7 @@ function desk_game_save_pulse(PDO $db, string $date, ?int $energy, ?int $mood, s
         $now = desk_sql_now();
         $st = $db->prepare('INSERT INTO game_daily_pulses (pulse_date,energy,mood,note,created_at,updated_at) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE energy=VALUES(energy), mood=VALUES(mood), note=VALUES(note), updated_at=VALUES(updated_at)');
         $st->execute([$date, $energy, $mood, $note, $now, $now]);
-        desk_game_award_once($db, 'pulse:' . $date . ':done', 'pulse_done', 'pulse', $date, 8, 'general', $date);
+        desk_game_award_once($db, 'pulse:' . $date . ':done', 'pulse_done', 'pulse', $date, 8, 'system', $date);
         $row = $db->prepare('SELECT pulse_date,energy,mood,note FROM game_daily_pulses WHERE pulse_date = ?');
         $row->execute([$date]);
         $pulse = $row->fetch() ?: [];
@@ -2188,7 +2192,7 @@ function desk_game_skill_for(PDO $db, string $objectType, string $objectId): str
     $st = $db->prepare('SELECT skill_id FROM game_bindings WHERE object_type = ? AND object_id = ?');
     $st->execute([$objectType, $objectId]);
     $skill = (string)($st->fetchColumn() ?: '');
-    return $skill !== '' ? $skill : 'general';
+    return $skill !== '' ? $skill : 'system';
 }
 
 function desk_game_award_once(PDO $db, string $eventKey, string $eventType, string $sourceType, string $sourceId, int $xp, string $skillId, ?string $rewardDate = null): bool
@@ -2298,7 +2302,7 @@ function desk_game_after_habit_check(PDO $db, array $habit, string $date, bool $
         $dailyXp += (int)desk_game_ranks()[$dailyRank]['xp'];
     }
     $bonus = (int)ceil($dailyXp * 0.25);
-    desk_game_award_once($db, 'daily_all:' . $date . ':v2', 'daily_set_done', 'daily_set', $date, $bonus, 'general', $date);
+    desk_game_award_once($db, 'daily_all:' . $date . ':v2', 'daily_set_done', 'daily_set', $date, $bonus, 'system', $date);
 }
 
 /** Revalues the append-only reward ledger without creating a second reward. */

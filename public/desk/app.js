@@ -170,7 +170,7 @@ function game() {
 
 function gameSkillId(objectType, objectId) {
   const binding = (game()?.bindings || []).find(x => x.object_type === objectType && x.object_id === objectId);
-  return binding ? binding.skill_id : "general";
+  return binding ? binding.skill_id : "system";
 }
 
 function gameSkillOptions(selected) {
@@ -311,12 +311,10 @@ function renderToday() {
     return `<button type="button" class="game-weekly-plan" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${booked.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}${planned ? ` / ${planned}` : ""} ч на этой неделе</small><span class="game-weekly-progress" aria-label="Выполнено ${progress}%"><i style="width:${progress}%"></i></span></span>${gameRankBadgeFor("task", task.id)}</button>`;
   }).join("");
   const realmMeta = [
-    { id: "general", title: "Основа", note: "устойчивость и быт", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
     { id: "clients", title: "Дело", note: "клиенты и результаты", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
-    { id: "order", title: "Порядок", note: "быт и ритуалы", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
-    { id: "system", title: "Система", note: "порядок и процессы", sprite: [10,11,12,18,19,20,25,26,27,28,29,34,35,36,37,38,42,43,44,45,46,50,51,52,53,58,59,60] },
     { id: "health", title: "Тело", note: "энергия и движение", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
-    { id: "learning", title: "Рост", note: "навыки и обучение", sprite: [10,11,12,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60] },
+    { id: "order", title: "Порядок", note: "быт и ритуалы", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
+    { id: "system", title: "Система", note: "процессы и опоры", sprite: [10,11,12,18,19,20,25,26,27,28,29,34,35,36,37,38,42,43,44,45,46,50,51,52,53,58,59,60] },
   ];
   const realmFor = id => realmMeta.find(r => r.id === id) || realmMeta[1];
   const realmRows = realmMeta.map(realm => {
@@ -335,10 +333,12 @@ function renderToday() {
     const strength = Math.min(1, xp / 100);
     return `<i class="game-hero-mark game-hero-mark--${realm.id}" style="--mark-strength:${strength}" aria-label="${esc(realm.title)}: ${xp} XP"></i>`;
   }).join("");
-  const skillRows = (g.skills || []).filter(s => s.id !== "general").map(s => {
-    const pct = Math.min(100, Number(s.xp || 0) % 100);
-    return `<div class="game-skill"><span>${esc(s.title)}</span><b>${Number(s.xp || 0)} XP</b><div class="bar"><i style="width:${pct}%"></i></div></div>`;
-  }).join("") || `<div class="sub">Навыки появятся после первых квестов.</div>`;
+  const balanceMax = Math.max(1, ...realmMeta.map(realm => Number((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0)));
+  const balanceRows = realmMeta.map(realm => {
+    const xp = Number((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0);
+    const height = Math.max(10, Math.round(xp * 100 / balanceMax));
+    return `<div class="game-balance-realm game-balance-realm--${realm.id}" style="--realm-height:${height}%"><span><b>${esc(realm.title)}</b><small>${xp} XP</small></span><i aria-hidden="true"></i></div>`;
+  }).join("");
   const questRows = quests.map(t => {
     const q = questStats(t);
     const pct = q.total ? Math.round(q.done * 100 / q.total) : 0;
@@ -381,7 +381,7 @@ function renderToday() {
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
       <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/5</span></div>${dailyRows}<div class="game-daily-bonus ${dailyProgress.bonus_awarded ? "done" : ""}">${dailyProgress.bonus_awarded ? `Идеальный день · +${Number(dailyProgress.bonus_xp)} XP` : "Бонус откроется, когда будут сделаны все 5/5"}</div></div>${extraRows}${pulseRows}${workLog}
     </section>
-    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small><div class="game-skills-divider">Навыки</div>${skillRows}${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
+    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><div class="game-balance-map" aria-label="Баланс королевств по всему накопленному опыту"><div><b>Карта баланса</b><small>высота владения — весь накопленный опыт</small></div><section>${balanceRows}</section></div><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
   </div>`;
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => openTask(btn.closest(".game-quest").dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
@@ -2759,22 +2759,21 @@ function renderHabitGrowthTree(habits) {
   if (!el) return;
   const g = game();
   const realms = [
-    { id: "general", title: "Основа", note: "быт и устойчивость", place: "нижнее святилище" },
+    { id: "clients", title: "Дело", note: "клиенты и результаты", place: "деловой форпост" },
     { id: "health", title: "Тело", note: "энергия и восстановление", place: "верхнее святилище" },
-    { id: "learning", title: "Рост", note: "знания и практика", place: "архив знаний" },
     { id: "order", title: "Порядок", note: "ритуалы и быт", place: "палата ритуалов" },
-    { id: "system", title: "Система", note: "порядок и процессы", place: "мастерская порядка" },
+    { id: "system", title: "Система", note: "процессы и опоры", place: "мастерская порядка" },
   ];
   const autoRealm = habit => {
     const title = String(habit.title || "").toLowerCase();
     if (title.includes("медитац") || title.includes("заряд") || title.includes("упражнен")) return "health";
-    if (title.includes("duolingo")) return "learning";
-    if (title.includes("кухн") || title.includes("кровать")) return "system";
-    return "general";
+    if (title.includes("duolingo")) return "system";
+    if (title.includes("кухн") || title.includes("кровать")) return "order";
+    return "system";
   };
   const skillForHabit = habit => {
-    const selected = gameSkillId("habit", habit.id);
-    return selected === "general" ? autoRealm(habit) : selected;
+    const selected = (g?.bindings || []).find(binding => binding.object_type === "habit" && binding.object_id === habit.id)?.skill_id;
+    return selected ? selected : autoRealm(habit);
   };
   const realmData = realms.map(realm => {
     const skill = (g?.skills || []).find(s => s.id === realm.id) || { xp: 0 };
@@ -2804,7 +2803,7 @@ function renderHabitGrowthTree(habits) {
   const branchRows = realmData.map(({ realm, skill, oldLeaves }) => `<section class="habit-branch habit-branch--${realm.id}"><div class="habit-branch-head"><span class="habit-branch-seed"></span><div><b>${realm.title}</b><small>${realm.note}</small></div><strong>${Number(skill.xp || 0)} XP</strong></div><div class="habit-leaves">${oldLeaves}</div></section>`).join("");
   const totalXp = Number(g?.profile?.total_xp || 0);
   const profile = g?.profile || { level: 1 };
-  el.innerHTML = `<section class="habit-growth" aria-label="Владения навыков"><header><div><h2>Владения навыков</h2><p>Это не схема: привычки — реальные узлы твоих территорий. Подсветка означает выполнение сегодня, оттенок узла — стоимость привычки.</p></div><b>${totalXp} XP</b></header><div class="realm-map ${REALM_MAP_SCENIC ? "is-scenic" : ""}" role="group" aria-label="Карта развития"><button type="button" class="realm-map-clean" aria-pressed="${REALM_MAP_SCENIC ? "true" : "false"}">${REALM_MAP_SCENIC ? "Показать узлы" : "Скрыть узлы"}</button><div class="realm-map-hero"><small>Ур. ${Number(profile.level || 1)}</small></div>${mapRealms}</div><details class="habit-tree-details"><summary>Точная раскладка веток</summary><p>Та же карта в компактном списке — для быстрого просмотра назначения привычек.</p><div class="habit-tree-root"><span class="habit-tree-sprout" aria-hidden="true"></span><div><strong>Прокачка</strong><small>текущие ветки</small></div></div><div class="habit-tree-branches">${branchRows}</div></details></section>`;
+  el.innerHTML = `<section class="habit-growth" aria-label="Владения навыков"><header><div><h2>Владения навыков</h2><p>Это не схема: привычки — реальные узлы твоих территорий. Подсветка означает выполнение сегодня, оттенок узла — стоимость привычки. Рост разворачивается внутри каждого владения, а не отдельным королевством.</p></div><b>${totalXp} XP</b></header><div class="realm-map ${REALM_MAP_SCENIC ? "is-scenic" : ""}" role="group" aria-label="Карта развития"><button type="button" class="realm-map-clean" aria-pressed="${REALM_MAP_SCENIC ? "true" : "false"}">${REALM_MAP_SCENIC ? "Показать узлы" : "Скрыть узлы"}</button><div class="realm-map-hero"><small>Ур. ${Number(profile.level || 1)}</small></div>${mapRealms}</div><details class="habit-tree-details"><summary>Точная раскладка веток</summary><p>Та же карта в компактном списке — для быстрого просмотра назначения привычек.</p><div class="habit-tree-root"><span class="habit-tree-sprout" aria-hidden="true"></span><div><strong>Прокачка</strong><small>текущие ветки</small></div></div><div class="habit-tree-branches">${branchRows}</div></details></section>`;
   el.querySelectorAll(".realm-node[data-id]").forEach(node => node.addEventListener("click", async () => {
     const habit = (STATE.habits || []).find(h => h.id === node.dataset.id);
     if (!habit) return;
@@ -2894,7 +2893,7 @@ function renderHabits() {
     const weekN = week.filter(k => checks[k]).length;
     const skillId = gameSkillId("habit", h.id);
     const rankId = gameRankId("habit", h.id, "green");
-    const skillTitle = ((game()?.skills || []).find(s => s.id === skillId) || { title: "Общее" }).title;
+    const skillTitle = ((game()?.skills || []).find(s => s.id === skillId) || { title: "Система" }).title;
     const rankMeta = gameRankMeta(rankId);
     const cells = week.map((k, i) =>
       `<button type="button" class="wd ${checks[k] ? "on" : ""} ${k === STATE.today ? "today" : ""}" data-d="${k}" ${(isMeditation || isStepHabit) && k === STATE.today ? 'disabled title="Отметь выполнение в карточке выше"' : ""}>${names[i]}</button>`
