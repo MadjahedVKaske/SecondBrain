@@ -78,19 +78,30 @@ header('Cache-Control: no-store');
         <h1>Стол</h1>
         <div class="sub" id="stamp">загрузка…</div>
       </div>
-      <div class="sub" id="storage"></div>
+      <button type="button" class="desk-nav-toggle desk-nav-toggle--quiet" id="desk-nav-toggle" aria-pressed="false" aria-label="Открыть полный Desk" title="Открыть полный Desk">Ещё</button>
     </header>
-    <nav class="tabs">
-      <a href="#tasks">Задачи</a>
-      <a href="#ideas">Идеи</a>
-      <a href="#client">Клиент</a>
-      <a href="#digest">Дайджест</a>
+    <nav class="tabs desk-nav" id="desk-nav" aria-label="Разделы Desk">
+      <a href="#today">Сегодня</a>
+      <a href="#tomorrow">Завтра</a>
       <a href="#calendar">Календарь</a>
-      <a href="#projects">Проекты</a>
-      <a href="#goals">Цели</a>
-      <a href="#habits">Привычки</a>
+      <span class="desk-nav-divider" aria-hidden="true"></span>
+      <a data-full-nav href="#tasks">Задачи</a>
+      <a data-full-nav href="#ideas">Идеи</a>
+      <a data-full-nav href="#client">Клиент</a>
+      <a data-full-nav href="#digest">Дайджест</a>
+      <a data-full-nav href="#projects">Проекты</a>
+      <a data-full-nav href="#goals">Цели</a>
+      <a data-full-nav href="#habits">Мой герой</a>
     </nav>
     <div id="client-context" class="client-context" hidden></div>
+
+    <section class="page" id="p-today">
+      <div id="game-today"></div>
+    </section>
+
+    <section class="page" id="p-tomorrow">
+      <div id="game-tomorrow"></div>
+    </section>
 
     <section class="page" id="p-tasks">
       <nav class="tabs filters" id="area-filters"></nav>
@@ -216,11 +227,13 @@ header('Cache-Control: no-store');
     </section>
 
     <section class="page" id="p-habits">
+      <div id="hero-campaign"></div>
       <form class="form form-habit" id="add-habit">
-        <label class="fld fld-title"><span>привычка</span>
-          <input id="nh-title" type="text" placeholder="что отмечать каждый день" required /></label>
+        <label class="fld fld-title"><span>новый дейлик</span>
+          <input id="nh-title" type="text" placeholder="что герой отмечает каждый день" required /></label>
         <button type="submit">Добавить</button>
       </form>
+      <div id="habit-growth-tree"></div>
       <div id="habit-stats" class="stats"></div>
       <div id="habits"></div>
     </section>

@@ -23,6 +23,9 @@ let CLIENT_FILTER = localStorage.getItem("desk_client") || "";
 let PROJECT_FILTER = localStorage.getItem("desk_project") || "";
 let SHOW_DONE = localStorage.getItem("desk_show_done") !== "0";
 let DIGEST_MODE = localStorage.getItem("desk_digest_mode") || "morning";
+let DESK_MODE = localStorage.getItem("desk_mode") || "light";
+let REALM_MAP_SCENIC = localStorage.getItem("desk_realm_map_scenic") === "1";
+const OPEN_QUEST_CHECKLISTS = new Set();
 
 const AREA_COLOR = {
   работа: "#3d8fd1",
@@ -161,6 +164,330 @@ function checklistStats(lists) {
   return { done, total };
 }
 
+function game() {
+  return STATE && STATE.game ? STATE.game : null;
+}
+
+function gameSkillId(objectType, objectId) {
+  const binding = (game()?.bindings || []).find(x => x.object_type === objectType && x.object_id === objectId);
+  return binding ? binding.skill_id : "general";
+}
+
+function gameSkillOptions(selected) {
+  return (game()?.skills || []).map(s =>
+    `<option value="${esc(s.id)}" ${s.id === selected ? "selected" : ""}>${esc(s.title)}</option>`
+  ).join("");
+}
+
+function gameRankId(objectType, objectId, fallback = "gray") {
+  const binding = (game()?.rank_bindings || []).find(x => x.object_type === objectType && x.object_id === objectId);
+  return binding ? binding.rank_id : fallback;
+}
+
+function gameRankBinding(objectType, objectId) {
+  return (game()?.rank_bindings || []).find(x => x.object_type === objectType && x.object_id === objectId) || null;
+}
+
+function gameRankMeta(rankId) {
+  const ranks = game()?.ranks || {};
+  return ranks[rankId] || { title: "Серый", xp: 5 };
+}
+
+function gameRankXp(objectType, objectId, fallback = "gray") {
+  const binding = gameRankBinding(objectType, objectId);
+  const rankId = binding ? binding.rank_id : fallback;
+  if (binding?.xp_override != null) return Number(binding.xp_override);
+  if (rankId === "red") return 0;
+  return Number(gameRankMeta(rankId).xp);
+}
+
+function gameRankOptions(selected) {
+  return Object.entries(game()?.ranks || {}).map(([id, rank]) =>
+    `<option value="${esc(id)}" ${id === selected ? "selected" : ""}>${esc(rank.title)} · ${rank.individual ? "индивидуально" : `${Number(rank.xp)} XP`}</option>`
+  ).join("");
+}
+
+function gameRankBadge(rankId, xpOverride = null) {
+  const rank = gameRankMeta(rankId);
+  const xp = xpOverride != null ? Number(xpOverride) : rankId === "red" ? 0 : Number(rank.xp);
+  return `<span class="game-rank game-rank--${esc(rankId)}">${esc(rank.title)} · ${xp ? `${xp} XP` : "индивидуально"}</span>`;
+}
+
+function gameRankBadgeFor(objectType, objectId, fallback = "gray") {
+  const binding = gameRankBinding(objectType, objectId);
+  return gameRankBadge(binding?.rank_id || fallback, binding?.xp_override);
+}
+
+function gameEventLabel(event) {
+  const task = taskById(event.source_id);
+  const habit = (STATE?.habits || []).find(h => h.id === event.source_id);
+  if (task) return task.title;
+  if (habit) return habit.title;
+  if (event.event_type === "checkpoint_done") return "Контрольный пункт";
+  if (event.event_type === "daily_set_done") return "Все дейлики";
+  return "Награда";
+}
+
+function questStats(t) {
+  const subs = subtasksOf(t.id);
+  const cl = checklistStats(t.checklists);
+  const total = subs.length + cl.total;
+  const done = subs.filter(x => x.status === "done").length + cl.done;
+  return { done, total, isQuest: total > 0 };
+}
+
+function xpToLevel(totalXp) {
+  return Math.max(0, 100 - (Number(totalXp || 0) % 100));
+}
+
+function pixelSprite(active, className = "") {
+  const cells = 8 * 10;
+  const on = new Set(active);
+  return `<span class="pixel-sprite ${className}" aria-hidden="true">${Array.from({ length: cells }, (_, i) => `<i class="${on.has(i) ? "on" : ""}"></i>`).join("")}</span>`;
+}
+
+function renderToday() {
+  const el = document.getElementById("game-today");
+  if (!el || !STATE) return;
+  const g = game();
+  if (!g) {
+    el.innerHTML = `<div class="empty">Игровой прогресс пока недоступен.</div>`;
+    return;
+  }
+  const profile = g.profile || { total_xp: 0, level: 1 };
+  const rewardRules = Object.entries(g.ranks || {}).map(([id, rank]) =>
+    `${String(rank.title || id).toLowerCase()} ${rank.individual ? "индивидуально" : Number(rank.xp)}${rank.individual ? "" : " XP"}`
+  ).join(" · ");
+  const dailyIds = g.daily_quests || [];
+  const quests = dailyIds.map(id => taskById(id)).filter(Boolean);
+  // The focus is intentionally limited to three quests, but regular tasks with
+  // today's due date must not disappear from the Today screen because of that limit.
+  const otherTodayTasks = (STATE.tasks || []).filter(t => !t.parent_task_id
+    && String(t.due || "").startsWith(STATE.today)
+    && t.status !== "done"
+    && !dailyIds.includes(t.id));
+  const doneTodayTasks = (STATE.tasks || []).filter(t => !t.parent_task_id
+    && String(t.due || "").startsWith(STATE.today)
+    && t.status === "done");
+  const habits = STATE.habits || [];
+  const dailyHabits = g.daily_habits || [];
+  const dailyProgress = g.daily_progress || { done: 0, total: 5, bonus_xp: 0, bonus_awarded: false };
+  const extraHabitIds = ["habit-extra-nap", "habit-extra-pushups-20"];
+  const extraHabits = extraHabitIds.map(id => habits.find(h => h.id === id)).filter(Boolean);
+  const waterHabit = habits.find(h => h.id === "habit-water-balance");
+  const waterPlan = (g.step_habits || {})["habit-water-balance"] || null;
+  const habitsDone = Number(dailyProgress.done || 0);
+  const dailyRows = dailyHabits.map(h => {
+    const done = !!h.done;
+    const isMeditation = h.id === "a81ac165-c481-4bdf-9686-6d170941a559" || h.title === "Медитация";
+    const rank = gameRankMeta(h.rank_id);
+    if (isMeditation && !done) {
+      const options = h.variant_id
+        ? `<button type="button" data-id="${esc(h.habit_id)}" data-variant="${esc(h.variant_id)}">Вернуть: ${h.variant_id === "meditation-30" ? "30" : "10"} мин</button>`
+        : `<button type="button" data-id="${esc(h.habit_id)}" data-variant="meditation-10">10 мин · +${Number(gameRankMeta("green").xp)} XP</button><button type="button" data-id="${esc(h.habit_id)}" data-variant="meditation-30">30 мин · +${Number(gameRankMeta("blue").xp)} XP</button>`;
+      return `<div class="game-daily game-daily--meditation"><span>${esc(h.title)}</span><span class="game-daily-options">${options}</span></div>`;
+    }
+    const detail = done
+      ? (h.variant_id === "meditation-30" ? "30 мин · готово" : h.variant_id === "meditation-10" ? "10 мин · готово" : "готово")
+      : `+${Number(rank.xp)} XP`;
+    return `<button type="button" class="game-daily ${done ? "done" : ""}" data-id="${esc(h.habit_id)}" aria-pressed="${done ? "true" : "false"}"><span>${esc(h.title)}</span><small>${detail}</small></button>`;
+  }).join("") || `<div class="sub">Пять дейликов появятся после подключения игрового слоя.</div>`;
+  const waterDone = new Set((waterPlan?.done_steps || []).map(Number));
+  const extraRows = (extraHabits.length || waterHabit) ? `<div class="game-extra-dailies"><div class="game-daily-head">Дополнительно <span>не входит в 5/5</span></div>
+    ${extraHabits.map(h => `<button type="button" class="game-extra-habit ${h.checks?.[STATE.today] ? "done" : ""}" data-id="${esc(h.id)}" aria-pressed="${h.checks?.[STATE.today] ? "true" : "false"}"><span>${esc(h.title)}</span><small>${h.checks?.[STATE.today] ? "готово" : `+${gameRankXp("habit", h.id, "green")} XP`}</small></button>`).join("")}
+    ${waterHabit && waterPlan ? `<div class="game-extra-water ${waterDone.size >= Number(waterPlan.total) ? "done" : ""}"><div><span>${esc(waterHabit.title)} · ${waterDone.size >= Number(waterPlan.total) ? "готово" : `${waterDone.size}/${Number(waterPlan.total)} стакана`}</span><small>${esc(waterPlan.label)}</small></div><div class="game-extra-water-actions">${Array.from({ length: Number(waterPlan.total) }, (_, index) => { const step=index+1, done=waterDone.has(step); return `<button type="button" data-step="${step}" ${done ? "disabled" : ""}>${done ? "✓" : `${step}. стакан`} · +${Number(waterPlan.step_xp)} XP</button>`; }).join("")}</div></div>` : ""}
+  </div>` : "";
+  const pulse = g.pulse || null;
+  const pulseValue = (key, label, low, high) => `<div class="game-pulse-row"><span>${label}</span><div class="game-pulse-scale" role="group" aria-label="${label}"><small>${low}</small>${[1, 2, 3, 4, 5].map(value => `<button type="button" data-pulse-key="${key}" data-pulse-value="${value}" aria-label="${label}: ${value} из 5" aria-pressed="${Number(pulse?.[key] || 0) === value ? "true" : "false"}"><i aria-hidden="true"></i></button>`).join("")}<small>${high}</small></div></div>`;
+  const pulseSummary = pulse ? `энергия ${Number(pulse.energy)}/5 · настроение ${Number(pulse.mood)}/5` : "без серии и обязательств";
+  const pulseRows = `<section class="game-pulse ${pulse ? "done" : ""}" aria-label="Пульс дня"><div class="game-pulse-head"><div><h3>Пульс дня</h3><small>необязательная отметка · +8 XP один раз</small></div><span>${pulse ? "сохранён" : "привал"}</span></div><p>${pulse ? esc(pulseSummary) : "Остановиться на минуту и заметить своё состояние. Дейлики от этого не зависят."}</p><details class="game-pulse-form" ${pulse ? "" : ""}><summary>${pulse ? "Посмотреть и изменить" : "Записать состояние"}</summary><div class="game-pulse-fields">${pulseValue("energy", "Энергия", "мало", "много")}${pulseValue("mood", "Настроение", "тяжело", "легко")}<label class="game-pulse-note"><span>Одной фразой, если хочется</span><textarea maxlength="600" placeholder="Что сегодня помогло или отняло силы?">${esc(pulse?.note || "")}</textarea></label><button type="button" class="game-pulse-save">${pulse ? "Сохранить изменения" : "Зафиксировать привал · +8 XP"}</button></div></details></section>`;
+  const recent = (g.events || []).slice(0, 3).map(e => `${esc(gameEventLabel(e))} ${Number(e.xp || 0) > 0 ? "+" : ""}${Number(e.xp || 0)} XP`).join(" · ") || "журнал пока пуст";
+  const week = new Set(weekKeys(STATE.today));
+  const weeklyPlans = (STATE.tasks || []).filter(task => /недельная цель/i.test(String(task.notes || "")) && task.status !== "done");
+  const weeklyRows = weeklyPlans.map(task => {
+    const planned = Number((String(task.notes || "").match(/до\s+(\d+(?:[.,]\d+)?)\s*час/i) || [])[1]?.replace(",", ".") || 0);
+    const booked = (STATE.works || []).filter(work => work.task_id === task.id && week.has(work.date)).reduce((sum, work) => sum + Number(work.hours || 0), 0);
+    const progress = planned ? Math.min(100, Math.round(booked * 100 / planned)) : 0;
+    return `<button type="button" class="game-weekly-plan" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${booked.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}${planned ? ` / ${planned}` : ""} ч на этой неделе</small><span class="game-weekly-progress" aria-label="Выполнено ${progress}%"><i style="width:${progress}%"></i></span></span>${gameRankBadgeFor("task", task.id)}</button>`;
+  }).join("");
+  const realmMeta = [
+    { id: "clients", title: "Дело", note: "клиенты и результаты", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
+    { id: "order", title: "Порядок", note: "быт и ритуалы", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
+    { id: "system", title: "Система", note: "порядок и процессы", sprite: [10,11,12,18,19,20,25,26,27,28,29,34,35,36,37,38,42,43,44,45,46,50,51,52,53,58,59,60] },
+    { id: "health", title: "Тело", note: "энергия и движение", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
+    { id: "learning", title: "Рост", note: "навыки и обучение", sprite: [10,11,12,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60] },
+  ];
+  const realmFor = id => realmMeta.find(r => r.id === id) || realmMeta[1];
+  const realmRows = realmMeta.map(realm => {
+    const skill = (g.skills || []).find(s => s.id === realm.id) || { xp: 0 };
+    const xp = Number(skill.xp || 0);
+    const pct = Math.min(100, xp % 100);
+    return `<article class="game-realm game-realm--${realm.id}">
+      ${pixelSprite(realm.sprite, "realm-sprite")}
+      <div><strong>${realm.title}</strong><small>${realm.note}</small><div class="bar"><i style="width:${pct}%"></i></div></div>
+      <b>${xp} XP</b>
+    </article>`;
+  }).join("");
+  const skillRows = (g.skills || []).filter(s => s.id !== "general").map(s => {
+    const pct = Math.min(100, Number(s.xp || 0) % 100);
+    return `<div class="game-skill"><span>${esc(s.title)}</span><b>${Number(s.xp || 0)} XP</b><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  }).join("") || `<div class="sub">Навыки появятся после первых квестов.</div>`;
+  const questRows = quests.map(t => {
+    const q = questStats(t);
+    const pct = q.total ? Math.round(q.done * 100 / q.total) : 0;
+    const realm = realmFor(gameSkillId("task", t.id));
+    const checklistItems = (t.checklists || []).flatMap(list => (list.items || []).map(item => ({ ...item, listTitle: list.title })));
+    const checklist = checklistItems.length ? `<details class="game-quest-checks" data-id="${esc(t.id)}" ${OPEN_QUEST_CHECKLISTS.has(t.id) ? "open" : ""}>
+      <summary>Чек-лист <span>${checklistItems.filter(item => item.done).length}/${checklistItems.length}</span></summary>
+      <div class="game-quest-checklist">${checklistItems.map(item => `<button type="button" class="game-quest-check ${item.done ? "done" : ""}" data-item-id="${esc(item.id)}" aria-pressed="${item.done ? "true" : "false"}"><span aria-hidden="true">${item.done ? "✓" : ""}</span><b>${esc(item.text)}</b></button>`).join("")}</div>
+    </details>` : "";
+    const rankId = gameRankId("task", t.id);
+    return `<article class="game-quest game-quest--${realm.id}" data-id="${esc(t.id)}">
+      <div class="game-quest-head"><button type="button" class="game-quest-open"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)} ${q.total ? `· ${q.done}/${q.total} шагов` : ""}</small><span class="bar"><i style="width:${pct}%"></i></span></button><button type="button" class="game-quest-remove" title="Убрать из фокуса" aria-label="Убрать из фокуса">×</button></div>
+      ${checklist}
+    </article>`;
+  }).join("") || `<div class="game-empty"><b>Фокус пока свободен.</b><span>Открой задачу со шагами или чек-листом и добавь её в «Сегодня».</span></div>`;
+  const otherTodayRows = otherTodayTasks.map(t => `<button type="button" class="game-other-task" data-id="${esc(t.id)}"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)}</small></button>`).join("");
+  const rules = g.rules || {};
+  const doneTodayRows = doneTodayTasks.map(t => {
+    const rank = gameRankMeta(gameRankId("task", t.id));
+    return `<button type="button" class="game-done-task" data-id="${esc(t.id)}"><span><b>${esc(t.title)}</b><small>${rank.title} квест · +${gameRankXp("task", t.id)} XP</small></span><strong aria-label="выполнено">✓</strong></button>`;
+  }).join("");
+  const worksToday = (STATE.works || []).filter(work => String(work.date || "").startsWith(STATE.today));
+  const hoursToday = worksToday.reduce((sum, work) => sum + Number(work.hours || 0), 0);
+  const workRows = worksToday.map(work => {
+    const task = taskById(work.task_id);
+    return `<button type="button" class="game-work-row" data-id="${esc(work.task_id || "")}"><span>${esc(task?.title || "Работа без задачи")}${work.note ? `<small>${esc(work.note)}</small>` : ""}</span><b>${Number(work.hours || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ч</b></button>`;
+  }).join("");
+  const workLog = `<details class="game-work-log"><summary><span>Учёт работ</span><b>${worksToday.length ? `${hoursToday.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ч · ${worksToday.length}` : "пока пусто"}</b></summary>${worksToday.length ? `<div class="game-work-list">${workRows}</div>` : `<p>Здесь появятся часы, зафиксированные сегодня в задачах.</p>`}</details>`;
+  const heroPixels = [9,10,11,12,13,14,17,18,19,20,21,22,25,26,27,28,29,30,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71];
+  el.innerHTML = `<section class="game-stage" aria-label="Профиль прогресса">
+    <div class="game-stage-copy"><span class="game-kicker">Твоя экспедиция</span><h2>Уровень ${Number(profile.level || 1)}</h2><p>Ранг выбирается по внутренней цене квеста. Чек-лист всегда даёт +${Number(rules.checkpoint_xp || 2)} XP за пункт.</p><div class="game-stage-xp"><b>${Number(profile.total_xp || 0)} XP</b><span>до уровня: ${xpToLevel(profile.total_xp)} XP</span></div><div class="game-level-bar"><i style="width:${Number(profile.total_xp || 0) % 100}%"></i></div><small class="game-reward-rules">${esc(rewardRules)}</small></div>
+    <div class="game-hero">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span></div>
+    <div class="game-stage-signal"><span>Дейлики</span><strong>${habitsDone}/${Number(dailyProgress.total || 5)}</strong><small>${dailyProgress.bonus_awarded ? `бонус +${Number(dailyProgress.bonus_xp)} XP` : "бонус — только за 5/5"}</small></div>
+  </section>
+  <div class="game-today-grid">
+    <section class="game-focus">
+      <div class="game-heading"><h2>Сегодня</h2><span>${quests.length}/3 квеста · ${habitsDone}/5 дейликов</span></div>
+      <div class="game-quests">${questRows}</div>
+      ${otherTodayRows ? `<div class="game-other-today"><div class="game-daily-head">Ещё на сегодня <span>${otherTodayTasks.length}</span></div>${otherTodayRows}</div>` : ""}
+      ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
+      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/5</span></div>${dailyRows}<div class="game-daily-bonus ${dailyProgress.bonus_awarded ? "done" : ""}">${dailyProgress.bonus_awarded ? `Идеальный день · +${Number(dailyProgress.bonus_xp)} XP` : "Бонус откроется, когда будут сделаны все 5/5"}</div></div>${extraRows}${pulseRows}${workLog}
+    </section>
+    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><div class="game-skills-divider">Навыки</div>${skillRows}${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
+  </div>`;
+  el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => openTask(btn.closest(".game-quest").dataset.id, { clearStack: true }));
+  el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
+  el.querySelectorAll(".game-done-task").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
+  el.querySelectorAll(".game-work-row").forEach(btn => btn.onclick = () => btn.dataset.id && openTask(btn.dataset.id, { clearStack: true }));
+  el.querySelectorAll(".game-weekly-plan").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
+  el.querySelectorAll(".game-quest-remove").forEach(btn => btn.onclick = async () => {
+    const id = btn.closest(".game-quest").dataset.id;
+    const out = await api(`game/daily-quests/${id}`, undefined, "DELETE");
+    if (!out || !out.ok) { toast("Не удалось убрать квест"); return; }
+    await load();
+  });
+  el.querySelectorAll(".game-quest-checks").forEach(details => details.addEventListener("toggle", () => {
+    if (details.open) OPEN_QUEST_CHECKLISTS.add(details.dataset.id);
+    else OPEN_QUEST_CHECKLISTS.delete(details.dataset.id);
+  }));
+  el.querySelectorAll(".game-quest-check").forEach(btn => btn.onclick = async () => {
+    const on = btn.getAttribute("aria-pressed") !== "true";
+    const out = await api(`items/${btn.dataset.itemId}`, { done: on });
+    if (!out || !out.ok) { toast("Пункт не сохранился"); return; }
+    await load();
+  });
+  el.querySelectorAll("button.game-daily").forEach(btn => btn.onclick = async () => {
+    const id = btn.dataset.id;
+    const habit = habits.find(h => h.id === id);
+    const on = !(habit && habit.checks && habit.checks[STATE.today]);
+    const out = await api(`habits/${id}/check`, { date: STATE.today, on });
+    if (!out || !out.ok) { toast("Дейлик не сохранился"); return; }
+    await load();
+  });
+  el.querySelectorAll(".game-daily-options button").forEach(btn => btn.onclick = async () => {
+    const out = await api(`habits/${btn.dataset.id}/check`, { date: STATE.today, on: true, variant_id: btn.dataset.variant });
+    if (!out || !out.ok) { toast("Медитация не сохранилась"); return; }
+    await load();
+  });
+  el.querySelectorAll(".game-extra-habit").forEach(btn => btn.onclick = async () => {
+    const id = btn.dataset.id;
+    const habit = habits.find(h => h.id === id);
+    const on = !(habit && habit.checks && habit.checks[STATE.today]);
+    const out = await api(`habits/${id}/check`, { date: STATE.today, on });
+    if (!out || !out.ok) { toast("Экстра-дейлик не сохранился"); return; }
+    await load();
+  });
+  el.querySelectorAll(".game-extra-water-actions button[data-step]").forEach(btn => btn.onclick = async () => {
+    const out = await api("habits/habit-water-balance/steps", { date: STATE.today, step: Number(btn.dataset.step) });
+    if (!out || !out.ok) { toast("Стакан не сохранился"); return; }
+    await load();
+  });
+  let pulseEnergy = pulse?.energy ? Number(pulse.energy) : null;
+  let pulseMood = pulse?.mood ? Number(pulse.mood) : null;
+  el.querySelectorAll("button[data-pulse-key]").forEach(btn => btn.onclick = () => {
+    const key = btn.dataset.pulseKey;
+    const value = Number(btn.dataset.pulseValue);
+    if (key === "energy") pulseEnergy = value;
+    if (key === "mood") pulseMood = value;
+    el.querySelectorAll(`button[data-pulse-key="${key}"]`).forEach(option => option.setAttribute("aria-pressed", String(Number(option.dataset.pulseValue) === value)));
+  });
+  el.querySelector(".game-pulse-save")?.addEventListener("click", async () => {
+    const note = el.querySelector(".game-pulse-note textarea")?.value || "";
+    const out = await api("game/pulse", { date: STATE.today, energy: pulseEnergy, mood: pulseMood, note });
+    if (!out || !out.ok) { toast("Пульс не сохранился"); return; }
+    toast(pulse ? "Пульс обновлён" : "Пульс сохранён · +8 XP");
+    await load();
+  });
+}
+
+function renderTomorrow() {
+  const el = document.getElementById("game-tomorrow");
+  if (!el || !STATE) return;
+  const date = new Date(`${STATE.today}T12:00:00`);
+  date.setDate(date.getDate() + 1);
+  const tomorrow = ymd(date);
+  const label = date.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+  const g = game();
+  if (!g) { el.innerHTML = `<div class="empty">Игровой прогресс пока недоступен.</div>`; return; }
+  const profile = g.profile || { total_xp: 0, level: 1 };
+  const tasks = (STATE.tasks || []).filter(t => !t.parent_task_id && String(t.due || "").startsWith(tomorrow) && t.status !== "done");
+  const potentialXp = tasks.reduce((sum, task) => sum + gameRankXp("task", task.id), 0);
+  const rows = tasks.map(t => {
+    const q = questStats(t);
+    const pct = q.total ? Math.round(q.done * 100 / q.total) : 0;
+    const items = (t.checklists || []).flatMap(list => list.items || []);
+    const checks = items.length ? `<details class="game-quest-checks" data-id="${esc(t.id)}" ${OPEN_QUEST_CHECKLISTS.has(t.id) ? "open" : ""}>
+      <summary>Чек-лист <span>${items.filter(item => item.done).length}/${items.length}</span></summary>
+      <div class="game-quest-checklist">${items.map(item => `<button type="button" class="game-quest-check ${item.done ? "done" : ""}" data-item-id="${esc(item.id)}" aria-pressed="${item.done ? "true" : "false"}"><span aria-hidden="true">${item.done ? "✓" : ""}</span><b>${esc(item.text)}</b></button>`).join("")}</div>
+    </details>` : "";
+    const realm = gameSkillId("task", t.id);
+    return `<article class="game-quest game-tomorrow-quest game-quest--${esc(realm)}" data-id="${esc(t.id)}"><div class="game-quest-head"><button type="button" class="game-quest-open"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)} ${q.isQuest ? `· ${q.done}/${q.total} шагов` : ""}</small><span class="bar"><i style="width:${pct}%"></i></span></button></div>${checks}</article>`;
+  }).join("") || `<div class="game-empty"><b>На завтра пока пусто.</b><span>Запланируй задачу с датой — она появится здесь.</span></div>`;
+  const week = new Set(weekKeys(STATE.today));
+  const weeklyPlans = (STATE.tasks || []).filter(task => /недельная цель/i.test(String(task.notes || "")) && task.status !== "done");
+  const weeklyRows = weeklyPlans.map(task => {
+    const planned = Number((String(task.notes || "").match(/до\s+(\d+(?:[.,]\d+)?)\s*час/i) || [])[1]?.replace(",", ".") || 0);
+    const booked = (STATE.works || []).filter(work => work.task_id === task.id && week.has(work.date)).reduce((sum, work) => sum + Number(work.hours || 0), 0);
+    const progress = planned ? Math.min(100, Math.round(booked * 100 / planned)) : 0;
+    return `<button type="button" class="game-weekly-plan" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${booked.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}${planned ? ` / ${planned}` : ""} ч на этой неделе</small><span class="game-weekly-progress" aria-label="Выполнено ${progress}%"><i style="width:${progress}%"></i></span></span>${gameRankBadgeFor("task", task.id)}</button>`;
+  }).join("");
+  const heroPixels = [9,10,11,12,13,14,17,18,19,20,21,22,25,26,27,28,29,30,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71];
+  el.innerHTML = `<section class="game-stage game-stage--tomorrow" aria-label="Экспедиция на завтра"><div class="game-stage-copy"><h2>Завтра · ${esc(label)}</h2><p>Следующий ход уже собран. Завтра останется только выбрать квест и начать.</p><div class="game-stage-xp"><b>${tasks.length} ${tasks.length === 1 ? "квест" : "квестов"}</b><span>награда пути: ${potentialXp} XP</span></div><div class="game-level-bar"><i style="width:${Math.min(100, potentialXp)}%"></i></div></div><div class="game-hero">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span></div><div class="game-stage-signal"><span>Текущий уровень</span><strong>${Number(profile.level || 1)}</strong><small>${Number(profile.total_xp || 0)} XP всего</small></div></section><div class="game-today-grid game-tomorrow-grid"><section class="game-focus"><div class="game-heading"><h2>Квесты на завтра</h2><span>${tasks.length} ${tasks.length === 1 ? "задача" : "задач"}</span></div><div class="game-quests">${rows}</div><div class="game-dailies game-tomorrow-rituals"><div class="game-daily-head">Дейлики</div><div class="game-daily"><span>Пять ежедневных ритуалов</span><small>откроются завтра</small></div></div></section><section class="game-skills"><div class="game-heading"><h2>Ориентиры</h2><span>на этой неделе</span></div>${weeklyRows ? `<div class="game-weekly-plans">${weeklyRows}</div>` : `<div class="game-empty"><b>Недельных ориентиров пока нет.</b><span>Большая цель появится здесь с её прогрессом.</span></div>`}</section></div>`;
+  el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => openTask(btn.closest(".game-quest").dataset.id, { clearStack: true }));
+  el.querySelectorAll(".game-quest-checks").forEach(details => details.addEventListener("toggle", () => {
+    if (details.open) OPEN_QUEST_CHECKLISTS.add(details.dataset.id);
+    else OPEN_QUEST_CHECKLISTS.delete(details.dataset.id);
+  }));
+  el.querySelectorAll(".game-quest-check").forEach(btn => btn.onclick = async () => {
+    const on = btn.getAttribute("aria-pressed") !== "true";
+    const out = await api(`items/${btn.dataset.itemId}`, { done: on });
+    if (!out || !out.ok) { toast("Пункт не сохранился"); return; }
+    await load();
+  });
+  el.querySelectorAll(".game-weekly-plan").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
+}
+
 function linkCount(lk) {
   if (!lk) return 0;
   return (lk.blocks_out || []).length + (lk.blocked_by || []).length
@@ -174,6 +501,8 @@ function applyStateFromServer(data) {
   if (data.comments) STATE.comments = data.comments;
   if (data.works) STATE.works = data.works;
   if (data.projects) STATE.projects = data.projects;
+  if (data.habits) STATE.habits = data.habits;
+  if (data.game) STATE.game = data.game;
 }
 
 async function syncTaskFromServer(id) {
@@ -207,7 +536,15 @@ async function refreshDrawer(id, openSecs) {
 
 function page() {
   closeDrawer();
-  const h = (location.hash || "#tasks").replace("#", "");
+  const h = (location.hash || "#today").replace("#", "");
+  if (["today", "tomorrow", "calendar"].includes(h)) {
+    DESK_MODE = "light";
+    localStorage.setItem("desk_mode", DESK_MODE);
+  } else if (document.querySelector(`[data-full-nav][href="#${h}"]`) && DESK_MODE !== "full") {
+    DESK_MODE = "full";
+    localStorage.setItem("desk_mode", DESK_MODE);
+  }
+  applyDeskMode();
   document.querySelectorAll("nav.tabs a").forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + h));
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("on", p.id === "p-" + h));
   if (h === "calendar" && CAL) CAL.updateSize();
@@ -1159,6 +1496,11 @@ function openTask(id, opts) {
   const subs = subtasksOf(id);
   const subDone = subs.filter(x => x.status === "done").length;
   const clStats = checklistStats(t.checklists);
+  const quest = questStats(t);
+  const inToday = (game()?.daily_quests || []).includes(t.id);
+  const taskSkill = gameSkillId("task", t.id);
+  const taskRank = gameRankId("task", t.id);
+  const taskRankXp = gameRankXp("task", t.id);
   const lkN = linkCount(t.links);
   const comm = commentsFor(id);
   const works = worksFor(id);
@@ -1206,6 +1548,17 @@ function openTask(id, opts) {
         <div class="sec-label">Направления</div>
         <div class="dir-chips" id="d-dirs">${renderDirectionChips(t)}</div>
         <button type="button" class="ghost" id="d-dir-add">+ направление</button>
+      </div>
+
+      <div class="game-task-controls">
+        <div>
+          <span class="sec-label">${quest.isQuest ? "Квест" : "Прогресс"}</span>
+          <span class="sub">${quest.isQuest ? `${quest.done}/${quest.total} шагов` : "Добавь шаги или чек-лист, чтобы превратить задачу в квест."}</span>
+        </div>
+        <label class="game-skill-select"><span>Навык</span><select id="d-game-skill">${gameSkillOptions(taskSkill)}</select></label>
+        <label class="game-rank-select"><span>Сложность</span><select id="d-game-rank">${gameRankOptions(taskRank)}</select></label>
+        <label class="game-rank-select" id="d-game-red-xp" ${taskRank === "red" ? "" : "hidden"}><span>Награда XP</span><input id="d-game-rank-xp" type="number" min="1" max="10000" step="1" value="${taskRank === "red" ? esc(taskRankXp) : ""}" placeholder="например, 150"/></label>
+        ${quest.isQuest ? `<button type="button" class="ghost" id="d-game-focus">${inToday ? "Убрать из сегодня" : "В фокус сегодня"}</button>` : ""}
       </div>
 
       <details class="section" data-sec="desc" open>
@@ -1324,6 +1677,8 @@ function openTask(id, opts) {
       toast("Ошибка сохранения");
       return false;
     }
+    await syncTaskFromServer(id);
+    renderToday();
     return true;
   }
 
@@ -1361,6 +1716,8 @@ function openTask(id, opts) {
     if (!out || !out.ok) { toast("Ошибка"); return; }
     t.status = next;
     document.getElementById("d-done").textContent = next === "done" ? "Вернуть" : "Готово";
+    await syncTaskFromServer(id);
+    renderToday();
   };
 
   document.getElementById("d-pause").onclick = async () => {
@@ -1376,6 +1733,61 @@ function openTask(id, opts) {
     closeDrawer();
     await load();
   };
+
+  const skillSelect = document.getElementById("d-game-skill");
+  if (skillSelect) {
+    skillSelect.onchange = async () => {
+      const out = await api("game/bindings", { object_type: "task", object_id: id, skill_id: skillSelect.value });
+      if (!out || !out.ok) { toast("Навык не сохранился"); return; }
+      await syncTaskFromServer(id);
+      renderToday();
+    };
+  }
+  const rankSelect = document.getElementById("d-game-rank");
+  const redXpControl = document.getElementById("d-game-red-xp");
+  const redXpInput = document.getElementById("d-game-rank-xp");
+  if (rankSelect) {
+    rankSelect.onchange = async () => {
+      if (rankSelect.value === "red") {
+        redXpControl.hidden = false;
+        redXpInput.focus();
+        toast("Для красного квеста укажи индивидуальную награду XP");
+        return;
+      }
+      redXpControl.hidden = true;
+      const out = await api("game/ranks", { object_type: "task", object_id: id, rank_id: rankSelect.value });
+      if (!out || !out.ok) { toast("Сложность не сохранилась"); return; }
+      await load();
+      await refreshDrawer(id, saveDrawerSections());
+    };
+  }
+  if (redXpInput) {
+    redXpInput.onchange = async () => {
+      const xp = Number(redXpInput.value);
+      if (rankSelect.value !== "red" || !Number.isInteger(xp) || xp < 1 || xp > 10000) {
+        toast("Укажи целую награду от 1 до 10 000 XP");
+        return;
+      }
+      const out = await api("game/ranks", { object_type: "task", object_id: id, rank_id: "red", xp_override: xp });
+      if (!out || !out.ok) { toast("Красная награда не сохранилась"); return; }
+      await load();
+      await refreshDrawer(id, saveDrawerSections());
+    };
+  }
+  const focusButton = document.getElementById("d-game-focus");
+  if (focusButton) {
+    focusButton.onclick = async () => {
+      const out = inToday
+        ? await api(`game/daily-quests/${id}`, undefined, "DELETE")
+        : await api("game/daily-quests", { task_id: id });
+      if (!out || !out.ok) {
+        toast(inToday ? "Не удалось убрать квест" : "В фокусе может быть до трёх квестов");
+        return;
+      }
+      await refreshDrawer(id, saveDrawerSections());
+      renderToday();
+    };
+  }
 
   async function saveNotes() {
     const text = document.getElementById("d-notes").value;
@@ -1550,6 +1962,7 @@ function openTask(id, opts) {
           return;
         }
         await refreshDrawer(id, saveDrawerSections());
+        renderToday();
       };
       card.querySelector(".sub-unlink").onclick = async (e) => {
         e.stopPropagation();
@@ -1589,6 +2002,7 @@ function openTask(id, opts) {
         return;
       }
       await syncTaskFromServer(id);
+      renderToday();
       const st = checklistStats(taskById(id).checklists);
       const sec = document.querySelector('#drawer details[data-sec="checklists"] .sec-count');
       if (sec) sec.textContent = `${st.done}/${st.total}`;
@@ -2268,7 +2682,7 @@ function renderGoals() {
   });
 }
 
-function heatHtml(checks) {
+function heatHtml(checks, opts = {}) {
   const today = STATE.today;
   const end = new Date(today + "T12:00:00");
   const start = new Date(end);
@@ -2281,7 +2695,8 @@ function heatHtml(checks) {
     const key = ymd(cur);
     const on = checks && checks[key] ? "on" : "";
     const isT = key === today ? "today" : "";
-    html += `<i class="${on} ${isT}" data-d="${key}" title="${key}"></i>`;
+    const lockedToday = !!opts.lockToday && key === today;
+    html += `<i class="${on} ${isT} ${lockedToday ? "locked" : ""}" data-d="${key}" title="${lockedToday ? "Выбери 10 или 30 минут выше" : key}" ${lockedToday ? 'aria-disabled="true"' : ""}></i>`;
     cur.setDate(cur.getDate() + 1);
   }
   return html;
@@ -2332,12 +2747,122 @@ function habitBoardStats(habits, today) {
   return { best, done, perfect, avg: (done / days).toFixed(1) };
 }
 
+function renderHabitGrowthTree(habits) {
+  const el = document.getElementById("habit-growth-tree");
+  if (!el) return;
+  const g = game();
+  const realms = [
+    { id: "general", title: "Основа", note: "быт и устойчивость", place: "нижнее святилище" },
+    { id: "health", title: "Тело", note: "энергия и восстановление", place: "верхнее святилище" },
+    { id: "learning", title: "Рост", note: "знания и практика", place: "архив знаний" },
+    { id: "order", title: "Порядок", note: "ритуалы и быт", place: "палата ритуалов" },
+    { id: "system", title: "Система", note: "порядок и процессы", place: "мастерская порядка" },
+  ];
+  const autoRealm = habit => {
+    const title = String(habit.title || "").toLowerCase();
+    if (title.includes("медитац") || title.includes("заряд") || title.includes("упражнен")) return "health";
+    if (title.includes("duolingo")) return "learning";
+    if (title.includes("кухн") || title.includes("кровать")) return "system";
+    return "general";
+  };
+  const skillForHabit = habit => {
+    const selected = gameSkillId("habit", habit.id);
+    return selected === "general" ? autoRealm(habit) : selected;
+  };
+  const realmData = realms.map(realm => {
+    const skill = (g?.skills || []).find(s => s.id === realm.id) || { xp: 0 };
+    const leaves = habits.filter(h => skillForHabit(h) === realm.id);
+    const leavesHtml = leaves.length
+      ? leaves.map(h => {
+        const rank = gameRankMeta(gameRankId("habit", h.id, "green"));
+        const streak = habitStreak(h.checks || {});
+        const lit = !!(h.checks || {})[STATE.today];
+        const stateLabel = lit ? "выполнено сегодня" : "нажми, чтобы отметить сегодня";
+        return `<button type="button" class="realm-node game-rank--${esc(gameRankId("habit", h.id, "green"))} ${lit ? "is-lit" : ""}" data-id="${esc(h.id)}" aria-pressed="${lit ? "true" : "false"}" title="${esc(h.title)} · ${stateLabel} · ${Number(rank.xp)} XP"><span class="realm-node-orb" aria-hidden="true"></span><span>${esc(h.title)}</span><small>${Number(rank.xp)} XP</small></button>`;
+      }).join("")
+      : `<span class="realm-node realm-node--empty">новый узел</span>`;
+    const oldLeaves = leaves.length
+      ? leaves.map(h => {
+        const rank = gameRankMeta(gameRankId("habit", h.id, "green"));
+        const streak = habitStreak(h.checks || {});
+        return `<button type="button" class="habit-leaf" data-id="${esc(h.id)}"><span class="habit-leaf-dot game-rank--${esc(gameRankId("habit", h.id, "green"))}"></span><span><b>${esc(h.title)}</b><small>серия ${streak} · ${Number(rank.xp)} XP</small></span></button>`;
+      }).join("")
+      : `<span class="habit-leaf habit-leaf--empty">ветка ждёт привычку</span>`;
+    return { realm, skill, leaves, nodes: leavesHtml, oldLeaves };
+  });
+  const mapRealms = realmData.map(({ realm, skill, leaves, nodes }) => {
+    const habitWord = leaves.length === 1 ? "привычка" : leaves.length > 1 && leaves.length < 5 ? "привычки" : "привычек";
+    return `<section class="realm-map-zone realm-map-zone--${realm.id}"><div class="realm-map-zone-head"><span class="realm-map-sigil" aria-hidden="true"></span><div><b>${realm.title}</b><small>${realm.place}</small></div><strong>${Number(skill.xp || 0)} XP</strong></div><div class="realm-map-nodes">${nodes}</div><span class="realm-map-count">${leaves.length ? `${leaves.length} ${habitWord}` : "свободная ветка"}</span></section>`;
+  }).join("");
+  const branchRows = realmData.map(({ realm, skill, oldLeaves }) => `<section class="habit-branch habit-branch--${realm.id}"><div class="habit-branch-head"><span class="habit-branch-seed"></span><div><b>${realm.title}</b><small>${realm.note}</small></div><strong>${Number(skill.xp || 0)} XP</strong></div><div class="habit-leaves">${oldLeaves}</div></section>`).join("");
+  const totalXp = Number(g?.profile?.total_xp || 0);
+  const profile = g?.profile || { level: 1 };
+  el.innerHTML = `<section class="habit-growth" aria-label="Владения навыков"><header><div><h2>Владения навыков</h2><p>Это не схема: привычки — реальные узлы твоих территорий. Подсветка означает выполнение сегодня, оттенок узла — стоимость привычки.</p></div><b>${totalXp} XP</b></header><div class="realm-map ${REALM_MAP_SCENIC ? "is-scenic" : ""}" role="group" aria-label="Карта развития"><button type="button" class="realm-map-clean" aria-pressed="${REALM_MAP_SCENIC ? "true" : "false"}">${REALM_MAP_SCENIC ? "Показать узлы" : "Скрыть узлы"}</button><div class="realm-map-hero"><small>Ур. ${Number(profile.level || 1)}</small></div>${mapRealms}</div><details class="habit-tree-details"><summary>Точная раскладка веток</summary><p>Та же карта в компактном списке — для быстрого просмотра назначения привычек.</p><div class="habit-tree-root"><span class="habit-tree-sprout" aria-hidden="true"></span><div><strong>Прокачка</strong><small>текущие ветки</small></div></div><div class="habit-tree-branches">${branchRows}</div></details></section>`;
+  el.querySelectorAll(".realm-node[data-id]").forEach(node => node.addEventListener("click", async () => {
+    const habit = (STATE.habits || []).find(h => h.id === node.dataset.id);
+    if (!habit) return;
+    if ((game()?.step_habits || {})[habit.id]) {
+      const target = document.querySelector(`.habit[data-id="${CSS.escape(habit.id)}"]`);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+      toast("Воду отмечай тремя стаканами в её карточке");
+      return;
+    }
+    const on = !((habit.checks || {})[STATE.today]);
+    const out = await api(`habits/${habit.id}/check`, { date: STATE.today, on });
+    if (!out || !out.ok) { toast("Привычка не сохранилась"); return; }
+    await load();
+  }));
+  el.querySelectorAll(".habit-leaf[data-id]").forEach(leaf => leaf.addEventListener("click", () => {
+    const target = document.querySelector(`.habit[data-id="${CSS.escape(leaf.dataset.id)}"]`);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+  }));
+  const clean = el.querySelector(".realm-map-clean");
+  if (clean) clean.addEventListener("click", () => {
+    REALM_MAP_SCENIC = !REALM_MAP_SCENIC;
+    localStorage.setItem("desk_realm_map_scenic", REALM_MAP_SCENIC ? "1" : "0");
+    renderHabitGrowthTree(STATE.habits || []);
+  });
+}
+
+function renderHeroCampaign() {
+  const el = document.getElementById("hero-campaign");
+  if (!el || !STATE) return;
+  const campaign = (STATE.tasks || []).find(task => task.title === "Хроники Второго Мозга — Путь Хранителя");
+  if (!campaign) { el.innerHTML = ""; return; }
+  const chapters = (STATE.tasks || []).filter(task => task.parent_task_id === campaign.id);
+  const done = chapters.filter(task => task.status === "done").length;
+  const percent = chapters.length ? Math.round(done * 100 / chapters.length) : 0;
+  const notePart = (notes, label) => {
+    const re = new RegExp(`(?:^|\\n\\n)${label}:\\s*([\\s\\S]*?)(?=\\n\\n(?:История|Результат|Ритуал пути):|$)`, "i");
+    const match = String(notes || "").match(re);
+    return match ? match[1].replace(/\s+/g, " ").trim() : "";
+  };
+  const prologue = notePart(campaign.notes, "Пролог");
+  const ritual = notePart(campaign.notes, "Ритуал пути");
+  const rows = chapters.map(task => {
+    const q = questStats(task);
+    const story = notePart(task.notes, "История");
+    const result = notePart(task.notes, "Результат");
+    const rank = gameRankId("task", task.id, "blue");
+    return `<button type="button" class="hero-campaign-chapter ${task.status === "done" ? "done" : ""}" data-id="${esc(task.id)}"><span class="hero-campaign-chapter-mark" aria-hidden="true">${task.status === "done" ? "✓" : ""}</span><span><b>${esc(task.title)}</b><small class="hero-campaign-story">${esc(story)}</small><small class="hero-campaign-result">Цель: ${esc(result)}</small></span><em>${gameRankBadge(rank)} ${q.total ? `· ${q.done}/${q.total}` : ""}</em></button>`;
+  }).join("");
+  const active = chapters.find(task => task.status !== "done") || chapters[chapters.length - 1];
+  const activeStory = active ? notePart(active.notes, "История") : "Все главы завершены — экспедиция может перейти к следующей арке.";
+  const activeQuest = active ? questStats(active) : { done: 0, total: 0 };
+  el.innerHTML = `<section class="hero-campaign" aria-label="Сюжетная кампания Second Brain"><header><div><h2>Хроники Второго Мозга</h2><p>Путь Хранителя: не часы, а работающие результаты.</p></div>${gameRankBadge(gameRankId("task", campaign.id, "gold"))}</header><div class="hero-campaign-progress"><span>${done}/${chapters.length} глав</span><span class="bar"><i style="width:${percent}%"></i></span><button type="button" class="hero-campaign-open" data-id="${esc(campaign.id)}">Открыть путь</button></div>${active ? `<button type="button" class="hero-campaign-next" data-id="${esc(active.id)}"><span><small>Следующая глава</small><b>${esc(active.title)}</b><em>${esc(activeStory)}</em></span><strong>${gameRankBadge(gameRankId("task", active.id, "blue"))}${activeQuest.total ? ` · ${activeQuest.done}/${activeQuest.total}` : ""}</strong></button>` : ""}<details class="hero-campaign-details"><summary>Весь путь · ${done}/${chapters.length} глав</summary><div class="hero-campaign-lore"><p>${esc(prologue)}</p><small>${esc(ritual)}</small></div><div class="hero-campaign-chapters">${rows}</div></details></section>`;
+  el.querySelector(".hero-campaign-open")?.addEventListener("click", () => openTask(campaign.id, { clearStack: true }));
+  el.querySelector(".hero-campaign-next")?.addEventListener("click", button => openTask(button.currentTarget.dataset.id, { clearStack: true }));
+  el.querySelectorAll(".hero-campaign-chapter").forEach(button => button.addEventListener("click", () => openTask(button.dataset.id, { clearStack: true })));
+}
+
 function renderHabits() {
   const el = document.getElementById("habits");
   const statsEl = document.getElementById("habit-stats");
   const habits = STATE.habits || [];
   const names = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
   const week = weekKeys(STATE.today);
+  renderHeroCampaign();
+  renderHabitGrowthTree(habits);
   if (statsEl) {
     const s = habitBoardStats(habits, STATE.today);
     statsEl.innerHTML = habits.length ? `
@@ -2349,37 +2874,102 @@ function renderHabits() {
   el.innerHTML = habits.map(h => {
     const checks = h.checks || {};
     const on = !!checks[STATE.today];
+    const isMeditation = String(h.title || "").trim().toLowerCase() === "медитация";
+    const stepPlan = (game()?.step_habits || {})[h.id] || null;
+    const isStepHabit = !!stepPlan;
+    const isExtraDaily = h.id === "habit-extra-nap";
+    const meditationDaily = (game()?.daily_habits || []).find(item => item.habit_id === h.id);
+    const meditationVariant = meditationDaily?.variant_id || "";
     const streak = habitStreak(checks);
     const best = habitBestStreak(checks);
     const month = (STATE.today || "").slice(0, 7);
     const monthN = Object.keys(checks).filter(k => k.startsWith(month) && checks[k]).length;
     const weekN = week.filter(k => checks[k]).length;
+    const skillId = gameSkillId("habit", h.id);
+    const rankId = gameRankId("habit", h.id, "green");
+    const skillTitle = ((game()?.skills || []).find(s => s.id === skillId) || { title: "Общее" }).title;
+    const rankMeta = gameRankMeta(rankId);
     const cells = week.map((k, i) =>
-      `<button type="button" class="wd ${checks[k] ? "on" : ""} ${k === STATE.today ? "today" : ""}" data-d="${k}">${names[i]}</button>`
+      `<button type="button" class="wd ${checks[k] ? "on" : ""} ${k === STATE.today ? "today" : ""}" data-d="${k}" ${(isMeditation || isStepHabit) && k === STATE.today ? 'disabled title="Отметь выполнение в карточке выше"' : ""}>${names[i]}</button>`
     ).join("");
+    const titleControl = (isMeditation || isStepHabit)
+      ? `<b>${esc(h.title)}</b>`
+      : `<label class="row"><input type="checkbox" ${on ? "checked" : ""}/> <b>${esc(h.title)}</b></label>`;
+    const meditationChoice = isMeditation
+      ? (on
+        ? `<div class="habit-meditation-choice habit-meditation-choice--done"><span>Сегодня</span><b>${meditationVariant === "meditation-30" ? "30 минут" : "10 минут"} · опыт получен</b><button type="button" class="habit-meditation-reset">Отменить</button></div>`
+        : meditationVariant
+          ? `<div class="habit-meditation-choice"><span>Сегодня</span><button type="button" data-variant="${esc(meditationVariant)}">Вернуть: ${meditationVariant === "meditation-30" ? "30" : "10"} минут</button></div>`
+          : `<div class="habit-meditation-choice" role="group" aria-label="Выбрать длительность медитации"><span>Сегодня</span><button type="button" data-variant="meditation-10">10 минут · +5 XP</button><button type="button" data-variant="meditation-30">30 минут · +12 XP</button></div>`)
+      : "";
+    const stepDone = new Set((stepPlan?.done_steps || []).map(Number));
+    const stepQuest = isStepHabit ? `<div class="habit-step-quest ${on ? "habit-step-quest--done" : ""}">
+      <div class="habit-step-head"><span>Сегодня · ${stepDone.size}/${Number(stepPlan.total)} стакана</span><b>${esc(stepPlan.label || "3 × 250 мл = 750 мл")}</b></div>
+      <div class="habit-step-buttons">${Array.from({ length: Number(stepPlan.total) }, (_, index) => {
+        const step = index + 1;
+        const doneStep = stepDone.has(step);
+        return `<button type="button" data-step="${step}" ${doneStep ? "disabled" : ""}>${doneStep ? "✓" : step}. стакан · +${Number(stepPlan.step_xp)} XP</button>`;
+      }).join("")}</div>
+      <small>${on ? `Зелёная награда +${Number(rankMeta.xp)} XP получена` : `После ${Number(stepPlan.total)}-го стакана: зелёная награда +${Number(rankMeta.xp)} XP`}</small>
+    </div>` : "";
     return `<div class="habit card" data-id="${esc(h.id)}">
-      <div class="row" style="justify-content:space-between">
-        <label class="row"><input type="checkbox" ${on ? "checked" : ""}/> <b>${esc(h.title)}</b></label>
-        <span class="sub">серия ${streak} · рекорд ${best} · неделя ${weekN}/7 · месяц ${monthN}</span>
+      <div class="habit-title-row">
+        ${titleControl}${isExtraDaily ? '<span class="habit-extra-badge">Экстра-дейлик</span>' : ""}
       </div>
+      ${meditationChoice}
+      ${stepQuest}
+      <div class="habit-meta-row"><span class="habit-summary">серия ${streak} · рекорд ${best} · неделя ${weekN}/7 · месяц ${monthN}</span><details class="habit-settings"><summary><span>${esc(skillTitle)} · ${esc(rankMeta.title)} · ${Number(rankMeta.xp)} XP</span><i>Настроить</i></summary><div class="game-habit-controls"><label class="game-habit-skill"><span>Навык</span><select>${gameSkillOptions(skillId)}</select></label><label class="game-rank-select"><span>XP</span><select>${gameRankOptions(rankId)}</select></label></div></details></div>
       <div class="week">${cells}</div>
       <details class="more"><summary>12 недель</summary>
         <div class="heat-wrap">
           <div class="heat-days"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span>сб</span><span>вс</span></div>
-          <div class="heat">${heatHtml(checks)}</div>
+          <div class="heat">${heatHtml(checks, { lockToday: isMeditation || isStepHabit })}</div>
         </div>
       </details>
     </div>`;
   }).join("") || `<div class="empty">Привычек нет</div>`;
   el.querySelectorAll(".habit").forEach(box => {
     const id = box.dataset.id;
-    box.querySelector("input").addEventListener("change", async (e) => {
+    const check = box.querySelector('input[type="checkbox"]');
+    if (check) check.addEventListener("change", async (e) => {
       await api(`habits/${id}/check`, { date: STATE.today, on: e.target.checked });
+      await load();
+    });
+    box.querySelectorAll(".habit-meditation-choice button[data-variant]").forEach(btn => btn.addEventListener("click", async () => {
+      const out = await api(`habits/${id}/check`, { date: STATE.today, on: true, variant_id: btn.dataset.variant });
+      if (!out || !out.ok) { toast("Медитация не сохранилась"); return; }
+      await load();
+    }));
+    box.querySelectorAll(".habit-step-quest button[data-step]").forEach(btn => btn.addEventListener("click", async () => {
+      const out = await api(`habits/${id}/steps`, { date: STATE.today, step: Number(btn.dataset.step) });
+      if (!out || !out.ok) { toast("Стакан не сохранился"); return; }
+      await load();
+    }));
+    const meditationReset = box.querySelector(".habit-meditation-reset");
+    if (meditationReset) meditationReset.addEventListener("click", async () => {
+      const out = await api(`habits/${id}/check`, { date: STATE.today, on: false });
+      if (!out || !out.ok) { toast("Не удалось отменить медитацию"); return; }
+      await load();
+    });
+    const skill = box.querySelector(".game-habit-skill select");
+    if (skill) skill.addEventListener("change", async () => {
+      const out = await api("game/bindings", { object_type: "habit", object_id: id, skill_id: skill.value });
+      if (!out || !out.ok) { toast("Навык не сохранился"); return; }
+      await load();
+    });
+    const rank = box.querySelector(".game-rank-select select");
+    if (rank) rank.addEventListener("change", async () => {
+      const out = await api("game/ranks", { object_type: "habit", object_id: id, rank_id: rank.value });
+      if (!out || !out.ok) { toast("XP привычки не сохранился"); return; }
       await load();
     });
     box.querySelectorAll(".wd").forEach(btn => {
       btn.addEventListener("click", async () => {
         const d = btn.dataset.d;
+        if (isStepHabit && d === STATE.today) {
+          toast("Воду отмечай тремя стаканами в карточке выше");
+          return;
+        }
         const h = (STATE.habits || []).find(x => x.id === id);
         const on = !(h.checks && h.checks[d]);
         await api(`habits/${id}/check`, { date: d, on });
@@ -2389,6 +2979,10 @@ function renderHabits() {
     box.querySelectorAll(".heat i").forEach(cell => {
       cell.addEventListener("click", async () => {
         const d = cell.dataset.d;
+        if ((isMeditation || isStepHabit) && d === STATE.today) {
+          toast(isStepHabit ? "Воду отмечай тремя стаканами в карточке выше" : "Для медитации выбери 10 или 30 минут выше");
+          return;
+        }
         const h = (STATE.habits || []).find(x => x.id === id);
         const on = !(h.checks && h.checks[d]);
         await api(`habits/${id}/check`, { date: d, on });
@@ -2426,7 +3020,6 @@ async function load() {
   }
   STATE = data;
   document.getElementById("stamp").textContent = data.today + " · бюро";
-  document.getElementById("storage").textContent = data.storage === "mysql" ? "MySQL" : "файл";
   restoreDeskFilters();
   const areaEl = document.getElementById("nt-area");
   if (areaEl && AREA_FILTER !== "все") areaEl.value = AREA_FILTER;
@@ -2443,6 +3036,21 @@ async function load() {
   renderCatalogs();
   renderGoals();
   renderHabits();
+  renderToday();
+  renderTomorrow();
+}
+
+function applyDeskMode() {
+  const nav = document.getElementById("desk-nav");
+  const toggle = document.getElementById("desk-nav-toggle");
+  if (nav) nav.classList.toggle("is-full", DESK_MODE === "full");
+  if (toggle) {
+    toggle.setAttribute("aria-pressed", DESK_MODE === "full" ? "true" : "false");
+    const full = DESK_MODE === "full";
+    toggle.textContent = full ? "Свернуть" : "Ещё";
+    toggle.setAttribute("aria-label", full ? "Свернуть полный Desk" : "Открыть полный Desk");
+    toggle.title = full ? "Свернуть полный Desk" : "Открыть полный Desk";
+  }
 }
 
 function renderCatalogs() {
@@ -2562,6 +3170,12 @@ document.getElementById("add-habit").addEventListener("submit", async (e) => {
 window.addEventListener("hashchange", page);
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeDrawer();
+});
+const deskNavToggle = document.getElementById("desk-nav-toggle");
+if (deskNavToggle) deskNavToggle.addEventListener("click", () => {
+  DESK_MODE = DESK_MODE === "full" ? "light" : "full";
+  localStorage.setItem("desk_mode", DESK_MODE);
+  applyDeskMode();
 });
 page();
 bindClientProject(document.getElementById("nt-client"), document.getElementById("nt-proj"));

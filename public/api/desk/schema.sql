@@ -153,3 +153,131 @@ CREATE TABLE IF NOT EXISTS desk_wake (
   acked_at DATETIME NULL,
   KEY idx_status_created (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Append-only ledger for the private add-only Desk ingress.  It makes retries
+-- safe without exposing a public task-creation endpoint.
+CREATE TABLE IF NOT EXISTS desk_ingress_requests (
+  source VARCHAR(32) NOT NULL,
+  request_key CHAR(64) NOT NULL,
+  request_sha256 CHAR(64) NOT NULL,
+  task_id CHAR(36) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (source, request_key),
+  KEY idx_task (task_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Gamification is a separate progress layer.  It never replaces the Desk
+-- task/habit state and all XP is recorded in the append-only event ledger.
+CREATE TABLE IF NOT EXISTS game_profile (
+  id VARCHAR(32) NOT NULL PRIMARY KEY,
+  avatar_key VARCHAR(64) NOT NULL DEFAULT 'pixel-spark',
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS game_skills (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  title VARCHAR(190) NOT NULL,
+  color VARCHAR(16) NOT NULL DEFAULT '',
+  position INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS game_bindings (
+  object_type ENUM('task','habit') NOT NULL,
+  object_id VARCHAR(64) NOT NULL,
+  skill_id VARCHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (object_type, object_id),
+  KEY idx_game_bindings_skill (skill_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS game_events (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  event_key VARCHAR(190) NOT NULL,
+  event_type VARCHAR(64) NOT NULL,
+  source_type VARCHAR(32) NOT NULL,
+  source_id VARCHAR(64) NOT NULL,
+  reward_date DATE NULL,
+  xp INT NOT NULL,
+  skill_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL,
+  UNIQUE KEY uq_game_event_key (event_key),
+  KEY idx_game_events_created (created_at),
+  KEY idx_game_events_skill (skill_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- A voluntary, once-a-day check-in. A quiet day is a valid game state, not a missed obligation.
+CREATE TABLE IF NOT EXISTS game_daily_pulses (
+  pulse_date DATE NOT NULL PRIMARY KEY,
+  energy TINYINT NULL,
+  mood TINYINT NULL,
+  note VARCHAR(600) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS game_daily_quests (
+  quest_date DATE NOT NULL,
+  task_id VARCHAR(36) NOT NULL,
+  position INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (quest_date, task_id),
+  KEY idx_game_daily_quests_task (task_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Rank is a voluntary estimate of emotional effort.  It lives beside, not in,
+-- Desk objects so task and habit facts stay untouched.
+CREATE TABLE IF NOT EXISTS game_rank_bindings (
+  object_type ENUM('task','habit') NOT NULL,
+  object_id VARCHAR(64) NOT NULL,
+  rank_id VARCHAR(16) NOT NULL,
+  -- Red quests are deliberately exceptional: their reward is chosen per task.
+  xp_override INT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (object_type, object_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Exactly these five routines count towards the all-dailies bonus.  Other
+-- habits may still earn their own XP, but cannot accidentally change 5/5.
+CREATE TABLE IF NOT EXISTS game_daily_habits (
+  habit_id VARCHAR(64) NOT NULL PRIMARY KEY,
+  position INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Meditation records the chosen duration for a particular completion.  The
+-- habit check remains the source of truth and this table only explains its XP.
+CREATE TABLE IF NOT EXISTS game_habit_variants (
+  habit_id VARCHAR(64) NOT NULL,
+  completed_date DATE NOT NULL,
+  variant_id VARCHAR(32) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (habit_id, completed_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Some habits are made of several small, concrete actions. The parent habit
+-- becomes true only when all steps for that day have been recorded.
+CREATE TABLE IF NOT EXISTS game_habit_step_plans (
+  habit_id       VARCHAR(64) NOT NULL PRIMARY KEY,
+  steps_required INT NOT NULL,
+  step_xp        INT NOT NULL DEFAULT 2,
+  start_date     DATE NOT NULL,
+  end_date       DATE NOT NULL,
+  label          VARCHAR(190) NOT NULL DEFAULT '',
+  created_at     DATETIME NOT NULL,
+  updated_at     DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS game_habit_step_checks (
+  habit_id  VARCHAR(64) NOT NULL,
+  check_date DATE NOT NULL,
+  step_no   INT NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (habit_id, check_date, step_no),
+  KEY idx_habit_date (habit_id, check_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

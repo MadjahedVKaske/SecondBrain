@@ -54,11 +54,19 @@ if ($method === 'POST' && ($rest === 'tg-wake' || $rest === 'tg-wake/')) {
     if (trim((string)($raw['tg_id'] ?? '')) === '') {
         desk_respond(['error' => 'bad_request'], 400);
     }
+    $db = desk_need_db();
+    if (!$db) desk_respond(['error' => 'unavailable'], 503);
+    desk_acquire_write_lock($db);
     desk_respond(['ok' => true, 'item' => desk_enqueue_wake($raw, 'tg')]);
 }
 
 if (desk_production_runtime() && in_array($method, ['POST', 'DELETE'], true) && !desk_csrf_ok()) {
     desk_respond(['error' => 'csrf'], 403);
+}
+if (desk_production_runtime() && in_array($method, ['POST', 'DELETE'], true)) {
+    $db = desk_need_db();
+    if (!$db) desk_respond(['error' => 'unavailable'], 503);
+    desk_acquire_write_lock($db);
 }
 
 if ($method === 'GET' && ($rest === '' || $rest === 'health')) {
@@ -92,8 +100,18 @@ if ($method === 'GET' && ($rest === '' || $rest === 'health')) {
 
 if ($method === 'GET' && ($rest === 'state' || $rest === 'state/')) {
     desk_need_view();
+    if (desk_production_runtime()) {
+        $db = desk_need_db();
+        if (!$db) desk_respond(['error' => 'unavailable'], 503);
+        desk_acquire_write_lock($db);
+    }
     desk_ensure_seed();
     $store = desk_load_store();
+    $game = null;
+    $gameDb = desk_pdo();
+    if ($gameDb) {
+        $game = desk_game_state($gameDb, $store);
+    }
     desk_respond([
         'ok' => true,
         'storage' => desk_pdo() ? 'mysql' : 'json',
@@ -109,6 +127,7 @@ if ($method === 'GET' && ($rest === 'state' || $rest === 'state/')) {
         'habits' => $store['habits'],
         'clients' => $store['clients'] ?? [],
         'works' => $store['works'] ?? [],
+        'game' => $game,
     ]);
 }
 
@@ -144,11 +163,80 @@ if ($method === 'POST' && ($rest === 'cron' || $rest === 'cron/')) {
 if ($method === 'POST' && preg_match('#^tasks/([^/]+)/status$#', $rest, $m)) {
     desk_need_view();
     $raw = desk_body();
-    $row = desk_set_status($m[1], (string)($raw['status'] ?? ''));
+    $db = desk_pdo();
+    try {
+        $row = $db
+            ? desk_game_transaction($db, static function () use ($m, $raw, $db) {
+                $task = desk_set_status($m[1], (string)($raw['status'] ?? ''));
+                if ($task) desk_game_after_task_status($db, $task);
+                return $task;
+            })
+            : desk_set_status($m[1], (string)($raw['status'] ?? ''));
+    } catch (Throwable $e) {
+        desk_respond(['error' => 'save_failed'], 500);
+    }
     if (!$row) {
         desk_respond(['error' => 'not_found_or_bad_status'], 400);
     }
     desk_respond(['ok' => true, 'task' => $row]);
+}
+
+if ($method === 'POST' && ($rest === 'game/bindings' || $rest === 'game/bindings/')) {
+    desk_need_view();
+    $db = desk_need_db();
+    if (!$db) desk_respond(['ok' => false, 'error' => 'no_db'], 503);
+    $raw = desk_body();
+    $ok = desk_game_bind($db, trim((string)($raw['object_type'] ?? '')), trim((string)($raw['object_id'] ?? '')), trim((string)($raw['skill_id'] ?? '')));
+    desk_respond(['ok' => $ok], $ok ? 200 : 400);
+}
+
+if ($method === 'POST' && ($rest === 'game/ranks' || $rest === 'game/ranks/')) {
+    desk_need_view();
+    $db = desk_need_db();
+    if (!$db) desk_respond(['ok' => false, 'error' => 'no_db'], 503);
+    $raw = desk_body();
+    $override = array_key_exists('xp_override', $raw) && $raw['xp_override'] !== '' ? (int)$raw['xp_override'] : null;
+    $ok = desk_game_set_rank($db, trim((string)($raw['object_type'] ?? '')), trim((string)($raw['object_id'] ?? '')), trim((string)($raw['rank_id'] ?? '')), $override);
+    desk_respond(['ok' => $ok], $ok ? 200 : 400);
+}
+
+if ($method === 'POST' && ($rest === 'game/pulse' || $rest === 'game/pulse/')) {
+    desk_need_view();
+    $db = desk_need_db();
+    if (!$db) desk_respond(['ok' => false, 'error' => 'no_db'], 503);
+    $raw = desk_body();
+    try {
+        $pulse = desk_game_save_pulse(
+            $db,
+            (string)($raw['date'] ?? desk_moscow_date()),
+            array_key_exists('energy', $raw) ? (int)$raw['energy'] : null,
+            array_key_exists('mood', $raw) ? (int)$raw['mood'] : null,
+            (string)($raw['note'] ?? '')
+        );
+    } catch (InvalidArgumentException $e) {
+        desk_respond(['error' => $e->getMessage()], 400);
+    } catch (Throwable $e) {
+        desk_respond(['error' => 'save_failed'], 500);
+    }
+    desk_respond(['ok' => true, 'pulse' => $pulse]);
+}
+
+if ($method === 'POST' && ($rest === 'game/daily-quests' || $rest === 'game/daily-quests/')) {
+    desk_need_view();
+    $db = desk_need_db();
+    if (!$db) desk_respond(['ok' => false, 'error' => 'no_db'], 503);
+    $raw = desk_body();
+    $date = (string)($raw['date'] ?? desk_moscow_date());
+    $ok = desk_game_set_daily_quest($db, trim((string)($raw['task_id'] ?? '')), $date);
+    desk_respond(['ok' => $ok], $ok ? 200 : 400);
+}
+
+if ($method === 'DELETE' && preg_match('#^game/daily-quests/([^/]+)$#', $rest, $m)) {
+    desk_need_view();
+    $db = desk_need_db();
+    if (!$db) desk_respond(['ok' => false, 'error' => 'no_db'], 503);
+    $date = (string)($_GET['date'] ?? desk_moscow_date());
+    desk_respond(['ok' => desk_game_remove_daily_quest($db, $m[1], $date)]);
 }
 
 if ($method === 'POST' && preg_match('#^tasks/([^/]+)/comments$#', $rest, $m)) {
@@ -179,9 +267,19 @@ if ($method === 'POST' && ($rest === 'tasks' || $rest === 'tasks/')) {
 if ($method === 'POST' && preg_match('#^tasks/([^/]+)$#', $rest, $m)) {
     desk_need_view();
     try {
-        $row = desk_patch_task($m[1], desk_body());
+        $patch = desk_body();
+        $db = desk_pdo();
+        $row = $db
+            ? desk_game_transaction($db, static function () use ($m, $patch, $db) {
+                $task = desk_patch_task($m[1], $patch);
+                if ($task) desk_game_after_task_status($db, $task);
+                return $task;
+            })
+            : desk_patch_task($m[1], $patch);
     } catch (InvalidArgumentException $e) {
         desk_respond(['ok' => false, 'error' => $e->getMessage()], 400);
+    } catch (Throwable $e) {
+        desk_respond(['ok' => false, 'error' => 'save_failed'], 500);
     }
     if (!$row) {
         desk_respond(['ok' => false, 'error' => 'not_found_or_bad_status'], 400);
@@ -283,11 +381,45 @@ if ($method === 'POST' && preg_match('#^habits/([^/]+)/check$#', $rest, $m)) {
         $v = $raw['on'];
         $on = $v === true || $v === 1 || $v === '1';
     }
-    $row = desk_habit_check($m[1], $date, (bool)$on);
+    $db = desk_pdo();
+    try {
+        $variantId = trim((string)($raw['variant_id'] ?? ''));
+        if ($db && $on && desk_game_habit_step_plan($db, $m[1], $date)) {
+            desk_respond(['error' => 'habit_steps_required'], 400);
+        }
+        if ($db && !desk_game_validate_habit_variant($db, $m[1], $date, $variantId, $on)) {
+            desk_respond(['error' => 'bad_habit_variant'], 400);
+        }
+        $row = $db
+            ? desk_game_transaction($db, static function () use ($m, $date, $on, $variantId, $db) {
+                $habit = desk_habit_check($m[1], $date, (bool)$on);
+                if ($habit) desk_game_after_habit_check($db, $habit, $date, $on, $variantId);
+                return $habit;
+            })
+            : desk_habit_check($m[1], $date, (bool)$on);
+    } catch (Throwable $e) {
+        desk_respond(['error' => 'save_failed'], 500);
+    }
     if (!$row) {
         desk_respond(['error' => 'not_found'], 400);
     }
     desk_respond(['ok' => true, 'habit' => $row]);
+}
+
+if ($method === 'POST' && preg_match('#^habits/([^/]+)/steps$#', $rest, $m)) {
+    desk_need_view();
+    $raw = desk_body();
+    $date = (string)($raw['date'] ?? desk_moscow_date());
+    $step = (int)($raw['step'] ?? 0);
+    $db = desk_pdo();
+    if (!$db) desk_respond(['error' => 'steps_need_mysql'], 503);
+    try {
+        $progress = desk_game_transaction($db, static fn() => desk_game_habit_step_add($db, $m[1], $date, $step));
+    } catch (Throwable $e) {
+        desk_respond(['error' => 'save_failed'], 500);
+    }
+    if (!$progress) desk_respond(['error' => 'bad_habit_step'], 400);
+    desk_respond(['ok' => true, 'progress' => $progress]);
 }
 
 if ($method === 'POST' && preg_match('#^habits/([^/]+)$#', $rest, $m)) {
@@ -425,7 +557,17 @@ if ($method === 'POST' && preg_match('#^items/([^/]+)$#', $rest, $m)) {
     if (!$db) {
         desk_respond(['ok' => false, 'error' => 'no_db'], 503);
     }
-    if (!desk_checklist_item_update($db, $m[1], desk_body())) {
+    $itemPatch = desk_body();
+    try {
+        $updated = desk_game_transaction($db, static function () use ($db, $m, $itemPatch) {
+            if (!desk_checklist_item_update($db, $m[1], $itemPatch)) return false;
+            if (array_key_exists('done', $itemPatch)) desk_game_after_checklist_item($db, $m[1]);
+            return true;
+        });
+    } catch (Throwable $e) {
+        desk_respond(['ok' => false, 'error' => 'save_failed'], 500);
+    }
+    if (!$updated) {
         desk_respond(['ok' => false, 'error' => 'not_found'], 400);
     }
     desk_respond(['ok' => true]);

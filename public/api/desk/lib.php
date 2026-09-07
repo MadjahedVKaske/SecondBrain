@@ -195,6 +195,7 @@ function desk_ensure_schema(PDO $pdo): void
         "ALTER TABLE desk_tasks ADD COLUMN blocked_by VARCHAR(36) NOT NULL DEFAULT ''",
         "ALTER TABLE desk_tasks ADD COLUMN parent_task_id VARCHAR(36) NOT NULL DEFAULT ''",
         "ALTER TABLE desk_tasks ADD COLUMN estimate_hours DECIMAL(8,2) NULL",
+        "ALTER TABLE game_rank_bindings ADD COLUMN xp_override INT NULL",
     ];
     foreach ($alters as $sql) {
         try {
@@ -569,7 +570,9 @@ function desk_load_from_db(PDO $db): array
         $out['comments'] = array_map('desk_comment_from_row', $db->query('SELECT * FROM desk_comments ORDER BY created_at')->fetchAll());
         $out['projects'] = array_map('desk_project_from_row', $db->query('SELECT * FROM desk_projects ORDER BY updated_at DESC')->fetchAll());
         $out['goals'] = array_map('desk_goal_from_row', $db->query('SELECT * FROM desk_goals ORDER BY updated_at DESC')->fetchAll());
-        $out['habits'] = array_map('desk_habit_from_row', $db->query('SELECT * FROM desk_habits ORDER BY updated_at DESC')->fetchAll());
+        // Completion updates updated_at; ordering by it makes a checked habit jump to the top.
+        // Keep the board stable in its creation order instead.
+        $out['habits'] = array_map('desk_habit_from_row', $db->query('SELECT * FROM desk_habits ORDER BY created_at ASC, id ASC')->fetchAll());
     } catch (Throwable $e) {
     }
     try {
@@ -937,7 +940,10 @@ function desk_wake_from_row(array $r): array
 
 function desk_save_to_db(PDO $db, array $store): void
 {
-    $db->beginTransaction();
+    $ownTx = !$db->inTransaction();
+    if ($ownTx) {
+        $db->beginTransaction();
+    }
     try {
         $db->exec('DELETE FROM desk_tasks');
         $db->exec('DELETE FROM desk_events');
@@ -1037,9 +1043,13 @@ function desk_save_to_db(PDO $db, array $store): void
                 desk_to_sql_dt($h['updated_at'] ?? '') ?: desk_sql_now(),
             ]);
         }
-        $db->commit();
+        if ($ownTx) {
+            $db->commit();
+        }
     } catch (Throwable $e) {
-        $db->rollBack();
+        if ($ownTx && $db->inTransaction()) {
+            $db->rollBack();
+        }
         throw $e;
     }
 }
@@ -1795,7 +1805,6 @@ function desk_ensure_seed(): void
         $haveH[(string)($h['id'] ?? '')] = true;
     }
     $habitSeeds = [
-        ['id' => 'habit-sergey', 'title' => 'Упражнения Сергей', 'checks' => []],
         ['id' => 'habit-home', 'title' => 'Убраться дома', 'checks' => []],
     ];
     foreach ($habitSeeds as $h) {
@@ -1924,6 +1933,558 @@ function desk_habit_check(string $id, string $date, bool $on): ?array
     $store['habits'][$i]['updated_at'] = desk_now();
     desk_save_store($store);
     return $store['habits'][$i];
+}
+
+/**
+ * Game layer: a deliberately small, MySQL-backed progress overlay.  Desk task
+ * and habit fields remain the source of truth; this ledger only records the
+ * first eligible completion for each reward key.
+ */
+function desk_game_seed(PDO $db): void
+{
+    $now = desk_sql_now();
+    $db->prepare("INSERT IGNORE INTO game_profile (id,avatar_key,created_at,updated_at) VALUES ('default','pixel-spark',?,?)")
+        ->execute([$now, $now]);
+    $skills = [
+        ['general', 'Общее', '#8b949e', 0],
+        ['clients', 'Клиентская работа', '#58a6ff', 1],
+        ['order', 'Организация порядка', '#66c7b2', 2],
+        ['system', 'Система', '#a371f7', 3],
+        ['health', 'Здоровье', '#3fb950', 4],
+        ['learning', 'Обучение', '#d29922', 5],
+    ];
+    $st = $db->prepare('INSERT IGNORE INTO game_skills (id,title,color,position,created_at,updated_at) VALUES (?,?,?,?,?,?)');
+    foreach ($skills as [$id, $title, $color, $position]) {
+        $st->execute([$id, $title, $color, $position, $now, $now]);
+    }
+    // Existing worlds are also reordered: order rituals precede system work.
+    $skillPosition = $db->prepare('UPDATE game_skills SET position = ?, updated_at = ? WHERE id = ?');
+    foreach ($skills as [$id, , , $position]) {
+        $skillPosition->execute([$position, $now, $id]);
+    }
+
+    // The daily loop is deliberately small and stable.  These rows are seeded
+    // once; individual historical habit checks are never rewritten.
+    $meditation = $db->query("SELECT id FROM desk_habits WHERE LOWER(title) = 'медитация' ORDER BY created_at LIMIT 1")->fetchColumn();
+    $dailyHabits = [
+        ['habit-daily-bed', 'Заправить кровать', 'gray', 0],
+        ['habit-daily-kitchen', 'Порядок на кухне', 'gray', 1],
+        ['habit-daily-exercise', 'Зарядка 5 минут', 'green', 2],
+        ['habit-daily-duolingo', 'Duolingo', 'gray', 3],
+        [$meditation ?: 'habit-daily-meditation', 'Медитация', 'green', 4],
+    ];
+    $habitInsert = $db->prepare('INSERT IGNORE INTO desk_habits (id,title,checks,created_at,updated_at) VALUES (?,?,?,?,?)');
+    $rankInsert = $db->prepare('INSERT IGNORE INTO game_rank_bindings (object_type,object_id,rank_id,created_at,updated_at) VALUES (?,?,?,?,?)');
+    $dailyInsert = $db->prepare('INSERT IGNORE INTO game_daily_habits (habit_id,position,created_at) VALUES (?,?,?)');
+    foreach ($dailyHabits as [$id, $title, $rank, $position]) {
+        $habitInsert->execute([$id, $title, '{}', $now, $now]);
+        $rankInsert->execute(['habit', $id, $rank, $now, $now]);
+        $dailyInsert->execute([$id, $position, $now]);
+    }
+
+    // Bonus rituals live beside the fixed five dailies.  They never enter
+    // game_daily_habits, therefore they cannot alter the 5/5 bundle bonus.
+    $extraHabits = [
+        ['habit-extra-nap', 'Сон днём 20 минут', 'blue', 'health'],
+        ['habit-water-balance', 'Водный баланс', 'green', 'health'],
+    ];
+    $skillInsert = $db->prepare('INSERT IGNORE INTO game_bindings (object_type,object_id,skill_id,created_at,updated_at) VALUES (?,?,?,?,?)');
+    foreach ($extraHabits as [$id, $title, $rank, $skill]) {
+        $habitInsert->execute([$id, $title, '{}', $now, $now]);
+        $rankInsert->execute(['habit', $id, $rank, $now, $now]);
+        $skillInsert->execute(['habit', $id, $skill, $now, $now]);
+    }
+    $waterEnd = (new DateTimeImmutable(desk_moscow_date()))->modify('+13 days')->format('Y-m-d');
+    $waterPlan = $db->prepare('INSERT IGNORE INTO game_habit_step_plans (habit_id,steps_required,step_xp,start_date,end_date,label,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)');
+    $waterPlan->execute(['habit-water-balance', 3, 2, desk_moscow_date(), $waterEnd, '3 × 250 мл = 750 мл · цель 700–750 мл', $now, $now]);
+}
+
+function desk_game_ranks(): array
+{
+    return [
+        'gray' => ['title' => 'Серый', 'xp' => 5],
+        'green' => ['title' => 'Зелёный', 'xp' => 12],
+        'blue' => ['title' => 'Синий', 'xp' => 25],
+        'purple' => ['title' => 'Фиолетовый', 'xp' => 50],
+        'gold' => ['title' => 'Золотой', 'xp' => 100],
+        'red' => ['title' => 'Красный', 'xp' => 0, 'individual' => true],
+    ];
+}
+
+function desk_game_rank_binding(PDO $db, string $objectType, string $objectId, string $fallback = 'gray'): array
+{
+    $st = $db->prepare('SELECT rank_id,xp_override FROM game_rank_bindings WHERE object_type = ? AND object_id = ?');
+    $st->execute([$objectType, $objectId]);
+    $row = $st->fetch() ?: [];
+    $rank = (string)($row['rank_id'] ?? $fallback);
+    if (!array_key_exists($rank, desk_game_ranks())) {
+        $rank = $fallback;
+    }
+    return ['rank_id' => $rank, 'xp_override' => isset($row['xp_override']) ? (int)$row['xp_override'] : null];
+}
+
+function desk_game_rank_for(PDO $db, string $objectType, string $objectId, string $fallback = 'gray'): string
+{
+    return desk_game_rank_binding($db, $objectType, $objectId, $fallback)['rank_id'];
+}
+
+function desk_game_rank_xp(PDO $db, string $objectType, string $objectId, string $fallback = 'gray'): int
+{
+    $binding = desk_game_rank_binding($db, $objectType, $objectId, $fallback);
+    if ($binding['xp_override'] !== null) {
+        return max(1, (int)$binding['xp_override']);
+    }
+    if ($binding['rank_id'] === 'red') {
+        return 0;
+    }
+    return (int)desk_game_ranks()[$binding['rank_id']]['xp'];
+}
+
+function desk_game_set_rank(PDO $db, string $objectType, string $objectId, string $rankId, ?int $xpOverride = null): bool
+{
+    if (!in_array($objectType, ['task', 'habit'], true) || !array_key_exists($rankId, desk_game_ranks()) || $objectId === '') {
+        return false;
+    }
+    if ($rankId === 'red' && ($objectType !== 'task' || $xpOverride === null || $xpOverride < 1 || $xpOverride > 10000)) {
+        return false;
+    }
+    if ($xpOverride !== null && ($xpOverride < 1 || $xpOverride > 10000)) {
+        return false;
+    }
+    $table = $objectType === 'task' ? 'desk_tasks' : 'desk_habits';
+    $st = $db->prepare("SELECT 1 FROM {$table} WHERE id = ? LIMIT 1");
+    $st->execute([$objectId]);
+    if (!$st->fetchColumn()) {
+        return false;
+    }
+    $now = desk_sql_now();
+    $st = $db->prepare('INSERT INTO game_rank_bindings (object_type,object_id,rank_id,xp_override,created_at,updated_at) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE rank_id=VALUES(rank_id), xp_override=VALUES(xp_override), updated_at=VALUES(updated_at)');
+    $st->execute([$objectType, $objectId, $rankId, $xpOverride, $now, $now]);
+    return true;
+}
+
+/** Saves a voluntary check-in and awards it exactly once. */
+function desk_game_save_pulse(PDO $db, string $date, ?int $energy, ?int $mood, string $note): array
+{
+    if ($date !== desk_moscow_date()) throw new InvalidArgumentException('pulse_today_only');
+    foreach ([$energy, $mood] as $value) {
+        if ($value !== null && ($value < 1 || $value > 5)) throw new InvalidArgumentException('bad_pulse_value');
+    }
+    $note = substr(trim($note), 0, 600);
+    if ($energy === null && $mood === null && $note === '') throw new InvalidArgumentException('pulse_empty');
+    return desk_game_transaction($db, static function () use ($db, $date, $energy, $mood, $note): array {
+        $now = desk_sql_now();
+        $st = $db->prepare('INSERT INTO game_daily_pulses (pulse_date,energy,mood,note,created_at,updated_at) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE energy=VALUES(energy), mood=VALUES(mood), note=VALUES(note), updated_at=VALUES(updated_at)');
+        $st->execute([$date, $energy, $mood, $note, $now, $now]);
+        desk_game_award_once($db, 'pulse:' . $date . ':done', 'pulse_done', 'pulse', $date, 8, 'general', $date);
+        $row = $db->prepare('SELECT pulse_date,energy,mood,note FROM game_daily_pulses WHERE pulse_date = ?');
+        $row->execute([$date]);
+        $pulse = $row->fetch() ?: [];
+        $pulse['awarded'] = true;
+        return $pulse;
+    });
+}
+
+function desk_game_validate_habit_variant(PDO $db, string $habitId, string $date, string $variantId, bool $on = true): bool
+{
+    if (!$on) {
+        return true;
+    }
+    if ($variantId === '') {
+        // Today's meditation is deliberately a choice, not an anonymous tick.
+        // Historical repair remains possible without inventing a duration.
+        if ($date === desk_moscow_date()) {
+            $st = $db->prepare("SELECT 1 FROM game_daily_habits d JOIN desk_habits h ON h.id = d.habit_id WHERE d.habit_id = ? AND LOWER(h.title) = 'медитация' LIMIT 1");
+            $st->execute([$habitId]);
+            if ($st->fetchColumn()) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (!in_array($variantId, ['meditation-10', 'meditation-30'], true)) {
+        return false;
+    }
+    // Duration is meaningful only for the designated meditation daily.
+    $st = $db->prepare("SELECT 1 FROM game_daily_habits d JOIN desk_habits h ON h.id = d.habit_id WHERE d.habit_id = ? AND LOWER(h.title) = 'медитация' LIMIT 1");
+    $st->execute([$habitId]);
+    if (!$st->fetchColumn()) {
+        return false;
+    }
+    $st = $db->prepare('SELECT variant_id FROM game_habit_variants WHERE habit_id = ? AND completed_date = ?');
+    $st->execute([$habitId, $date]);
+    $saved = (string)($st->fetchColumn() ?: '');
+    if ($saved !== '') {
+        return $saved === $variantId;
+    }
+    // One completed daily is one fact in the ledger.  Do not silently rewrite
+    // its XP later by replacing 10 minutes with 30 minutes.
+    $st = $db->prepare('SELECT 1 FROM game_events WHERE event_key = ? LIMIT 1');
+    $st->execute(['habit:' . $habitId . ':' . $date . ':done']);
+    return !$st->fetchColumn();
+}
+
+function desk_game_habit_step_plan(PDO $db, string $habitId, string $date): ?array
+{
+    $st = $db->prepare('SELECT habit_id,steps_required,step_xp,start_date,end_date,label FROM game_habit_step_plans WHERE habit_id = ? AND ? BETWEEN start_date AND end_date');
+    $st->execute([$habitId, $date]);
+    return $st->fetch() ?: null;
+}
+
+function desk_game_habit_step_add(PDO $db, string $habitId, string $date, int $stepNo): ?array
+{
+    $plan = desk_game_habit_step_plan($db, $habitId, $date);
+    if (!$plan || $stepNo < 1 || $stepNo > (int)$plan['steps_required']) return null;
+    $now = desk_sql_now();
+    $st = $db->prepare('INSERT IGNORE INTO game_habit_step_checks (habit_id,check_date,step_no,created_at) VALUES (?,?,?,?)');
+    $st->execute([$habitId, $date, $stepNo, $now]);
+    $inserted = $st->rowCount() === 1;
+    if ($inserted) {
+        desk_game_award_once($db, 'habit-step:' . $habitId . ':' . $date . ':' . $stepNo, 'habit_step_done', 'habit_step', $habitId . ':' . $stepNo, (int)$plan['step_xp'], desk_game_skill_for($db, 'habit', $habitId), $date);
+    }
+    $countSt = $db->prepare('SELECT COUNT(*) FROM game_habit_step_checks WHERE habit_id = ? AND check_date = ?');
+    $countSt->execute([$habitId, $date]);
+    $done = (int)$countSt->fetchColumn();
+    if ($done >= (int)$plan['steps_required']) {
+        $habit = desk_habit_check($habitId, $date, true);
+        if ($habit) desk_game_after_habit_check($db, $habit, $date, true);
+    }
+    return ['done' => $done, 'total' => (int)$plan['steps_required'], 'inserted' => $inserted];
+}
+
+/** Active multi-step habits and their already recorded steps for one date. */
+function desk_game_habit_steps_state(PDO $db, string $date): array
+{
+    $plans = $db->prepare('SELECT habit_id,steps_required,step_xp,start_date,end_date,label FROM game_habit_step_plans WHERE ? BETWEEN start_date AND end_date');
+    $plans->execute([$date]);
+    $out = [];
+    foreach ($plans->fetchAll() as $plan) {
+        $checks = $db->prepare('SELECT step_no FROM game_habit_step_checks WHERE habit_id = ? AND check_date = ? ORDER BY step_no');
+        $checks->execute([(string)$plan['habit_id'], $date]);
+        $out[(string)$plan['habit_id']] = [
+            'total' => (int)$plan['steps_required'],
+            'step_xp' => (int)$plan['step_xp'],
+            'label' => (string)$plan['label'],
+            'start_date' => (string)$plan['start_date'],
+            'end_date' => (string)$plan['end_date'],
+            'done_steps' => array_map(static fn($row) => (int)$row['step_no'], $checks->fetchAll()),
+        ];
+    }
+    return $out;
+}
+
+function desk_game_level(int $xp): int
+{
+    return max(1, intdiv(max(0, $xp), 100) + 1);
+}
+
+/** Run a Desk fact update and its ledger effect as one MySQL transaction. */
+function desk_game_transaction(PDO $db, callable $operation)
+{
+    $ownTx = !$db->inTransaction();
+    try {
+        if ($ownTx) {
+            $db->beginTransaction();
+        }
+        $result = $operation();
+        if ($ownTx) {
+            $db->commit();
+        }
+        return $result;
+    } catch (Throwable $e) {
+        if ($ownTx && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function desk_game_skill_for(PDO $db, string $objectType, string $objectId): string
+{
+    $st = $db->prepare('SELECT skill_id FROM game_bindings WHERE object_type = ? AND object_id = ?');
+    $st->execute([$objectType, $objectId]);
+    $skill = (string)($st->fetchColumn() ?: '');
+    return $skill !== '' ? $skill : 'general';
+}
+
+function desk_game_award_once(PDO $db, string $eventKey, string $eventType, string $sourceType, string $sourceId, int $xp, string $skillId, ?string $rewardDate = null): bool
+{
+    desk_game_seed($db);
+    $ownTx = !$db->inTransaction();
+    try {
+        if ($ownTx) {
+            $db->beginTransaction();
+        }
+        $ins = $db->prepare('INSERT IGNORE INTO game_events (id,event_key,event_type,source_type,source_id,reward_date,xp,skill_id,created_at) VALUES (?,?,?,?,?,?,?,?,?)');
+        $ins->execute([desk_uuid(), $eventKey, $eventType, $sourceType, $sourceId, $rewardDate, $xp, $skillId, desk_sql_now()]);
+        if ($ins->rowCount() !== 1) {
+            if ($ownTx) {
+                $db->commit();
+            }
+            return false;
+        }
+        if ($ownTx) {
+            $db->commit();
+        }
+        return true;
+    } catch (Throwable $e) {
+        if ($ownTx && $db->inTransaction()) {
+            $db->rollBack();
+        }
+        throw $e;
+    }
+}
+
+function desk_game_task_is_quest(PDO $db, string $taskId): bool
+{
+    $st = $db->prepare('SELECT 1 FROM desk_tasks WHERE parent_task_id = ? LIMIT 1');
+    $st->execute([$taskId]);
+    if ($st->fetchColumn()) {
+        return true;
+    }
+    $st = $db->prepare('SELECT 1 FROM desk_checklists WHERE task_id = ? LIMIT 1');
+    $st->execute([$taskId]);
+    return (bool)$st->fetchColumn();
+}
+
+function desk_game_after_task_status(PDO $db, array $task): void
+{
+    if (($task['status'] ?? '') !== 'done') {
+        return;
+    }
+    $id = (string)($task['id'] ?? '');
+    if ($id === '') {
+        return;
+    }
+    desk_game_award_once($db, 'task:' . $id . ':done', 'quest_done', 'task', $id, desk_game_rank_xp($db, 'task', $id), desk_game_skill_for($db, 'task', $id));
+}
+
+function desk_game_after_checklist_item(PDO $db, string $itemId): void
+{
+    $st = $db->prepare('SELECT i.done, c.task_id FROM desk_checklist_items i JOIN desk_checklists c ON c.id = i.checklist_id WHERE i.id = ?');
+    $st->execute([$itemId]);
+    $row = $st->fetch();
+    if (!$row || !(int)$row['done']) {
+        return;
+    }
+    $taskId = (string)$row['task_id'];
+    desk_game_award_once($db, 'checklist_item:' . $itemId . ':done', 'checkpoint_done', 'checklist_item', $itemId, 2, desk_game_skill_for($db, 'task', $taskId));
+}
+
+function desk_game_after_habit_check(PDO $db, array $habit, string $date, bool $on, string $variantId = ''): void
+{
+    if (!$on) {
+        return;
+    }
+    $id = (string)($habit['id'] ?? '');
+    if ($id === '') {
+        return;
+    }
+    $rank = desk_game_rank_for($db, 'habit', $id, 'green');
+    if ($variantId === 'meditation-30') {
+        $rank = 'blue';
+    } elseif ($variantId === 'meditation-10') {
+        $rank = 'green';
+    }
+    if ($variantId !== '') {
+        $now = desk_sql_now();
+        $st = $db->prepare('INSERT INTO game_habit_variants (habit_id,completed_date,variant_id,created_at,updated_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE variant_id=VALUES(variant_id), updated_at=VALUES(updated_at)');
+        $st->execute([$id, $date, $variantId, $now, $now]);
+    }
+    $xp = (int)desk_game_ranks()[$rank]['xp'];
+    desk_game_award_once($db, 'habit:' . $id . ':' . $date . ':done', 'daily_done', 'habit', $id, $xp, desk_game_skill_for($db, 'habit', $id), $date);
+
+    $rows = $db->query('SELECT d.habit_id, h.checks, b.rank_id FROM game_daily_habits d JOIN desk_habits h ON h.id = d.habit_id LEFT JOIN game_rank_bindings b ON b.object_type = \'habit\' AND b.object_id = d.habit_id ORDER BY d.position')->fetchAll();
+    if (count($rows) !== 5) {
+        return;
+    }
+    $dailyXp = 0;
+    foreach ($rows as $row) {
+        $checks = json_decode((string)($row['checks'] ?? '{}'), true);
+        if (!is_array($checks) || empty($checks[$date])) {
+            return;
+        }
+        $dailyRank = (string)($row['rank_id'] ?: 'gray');
+        $variant = '';
+        $st = $db->prepare('SELECT variant_id FROM game_habit_variants WHERE habit_id = ? AND completed_date = ?');
+        $st->execute([(string)$row['habit_id'], $date]);
+        $variant = (string)($st->fetchColumn() ?: '');
+        if ($variant === 'meditation-30') $dailyRank = 'blue';
+        if ($variant === 'meditation-10') $dailyRank = 'green';
+        $dailyXp += (int)desk_game_ranks()[$dailyRank]['xp'];
+    }
+    $bonus = (int)ceil($dailyXp * 0.25);
+    desk_game_award_once($db, 'daily_all:' . $date . ':v2', 'daily_set_done', 'daily_set', $date, $bonus, 'general', $date);
+}
+
+/** Revalues the append-only reward ledger without creating a second reward. */
+function desk_game_recalculate_rewards(PDO $db): int
+{
+    desk_game_seed($db);
+    return desk_game_transaction($db, function () use ($db): int {
+        $dailyIds = $db->query('SELECT habit_id FROM game_daily_habits ORDER BY position')->fetchAll(PDO::FETCH_COLUMN);
+        $variant = $db->prepare('SELECT variant_id FROM game_habit_variants WHERE habit_id = ? AND completed_date = ?');
+        $rank = static function (string $habitId, string $date) use ($db, $variant): int {
+            $rankId = desk_game_rank_for($db, 'habit', $habitId, 'green');
+            $variant->execute([$habitId, $date]);
+            $variantId = (string)($variant->fetchColumn() ?: '');
+            if ($variantId === 'meditation-30') $rankId = 'blue';
+            if ($variantId === 'meditation-10') $rankId = 'green';
+            return (int)desk_game_ranks()[$rankId]['xp'];
+        };
+        $rows = $db->query("SELECT id,event_type,source_type,source_id,reward_date,xp FROM game_events WHERE event_type IN ('quest_done','task_done','daily_done','daily_set_done','task_xp_correction','daily_correction') FOR UPDATE")->fetchAll();
+        $update = $db->prepare('UPDATE game_events SET xp = ? WHERE id = ?');
+        $changed = 0;
+        foreach ($rows as $row) {
+            $type = (string)$row['event_type'];
+            $date = (string)($row['reward_date'] ?? '');
+            if ($type === 'quest_done' || $type === 'task_done') {
+                $xp = desk_game_rank_xp($db, 'task', (string)$row['source_id']);
+            } elseif ($type === 'daily_done') {
+                $xp = $rank((string)$row['source_id'], $date);
+            } elseif ($type === 'daily_set_done') {
+                $base = 0;
+                foreach ($dailyIds as $habitId) {
+                    $base += $rank((string)$habitId, $date);
+                }
+                $xp = (int)ceil($base * 0.25);
+            } else {
+                // These were one-off repair deltas for the superseded scale.
+                // Keep them in the audit ledger, but do not let them distort v2.
+                $xp = 0;
+            }
+            if ((int)$row['xp'] !== $xp) {
+                $update->execute([$xp, (string)$row['id']]);
+                $changed++;
+            }
+        }
+        return $changed;
+    });
+}
+
+function desk_game_bind(PDO $db, string $objectType, string $objectId, string $skillId): bool
+{
+    if (!in_array($objectType, ['task', 'habit'], true) || $objectId === '') {
+        return false;
+    }
+    desk_game_seed($db);
+    $table = $objectType === 'task' ? 'desk_tasks' : 'desk_habits';
+    $st = $db->prepare("SELECT 1 FROM {$table} WHERE id = ? LIMIT 1");
+    $st->execute([$objectId]);
+    if (!$st->fetchColumn()) {
+        return false;
+    }
+    $st = $db->prepare('SELECT 1 FROM game_skills WHERE id = ? LIMIT 1');
+    $st->execute([$skillId]);
+    if (!$st->fetchColumn()) {
+        return false;
+    }
+    $now = desk_sql_now();
+    $st = $db->prepare('INSERT INTO game_bindings (object_type,object_id,skill_id,created_at,updated_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE skill_id=VALUES(skill_id), updated_at=VALUES(updated_at)');
+    $st->execute([$objectType, $objectId, $skillId, $now, $now]);
+    return true;
+}
+
+function desk_game_set_daily_quest(PDO $db, string $taskId, string $date): bool
+{
+    return (bool)desk_game_transaction($db, static function () use ($db, $taskId, $date): bool {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || !desk_game_task_is_quest($db, $taskId)) {
+            return false;
+        }
+        // Lock the day's existing rows so the count and insert form one decision.
+        $st = $db->prepare('SELECT task_id FROM game_daily_quests WHERE quest_date = ? FOR UPDATE');
+        $st->execute([$date]);
+        $existing = array_map(static fn($row) => (string)$row['task_id'], $st->fetchAll());
+        if (!in_array($taskId, $existing, true) && count($existing) >= 3) {
+            return false;
+        }
+        if (in_array($taskId, $existing, true)) {
+            return true;
+        }
+        $st = $db->prepare('SELECT COALESCE(MAX(position), -1) + 1 FROM game_daily_quests WHERE quest_date = ?');
+        $st->execute([$date]);
+        $position = (int)$st->fetchColumn();
+        $st = $db->prepare('INSERT INTO game_daily_quests (quest_date,task_id,position,created_at) VALUES (?,?,?,?)');
+        $st->execute([$date, $taskId, $position, desk_sql_now()]);
+        return true;
+    });
+}
+
+function desk_game_remove_daily_quest(PDO $db, string $taskId, string $date): bool
+{
+    $st = $db->prepare('DELETE FROM game_daily_quests WHERE quest_date = ? AND task_id = ?');
+    $st->execute([$date, $taskId]);
+    return $st->rowCount() > 0;
+}
+
+function desk_game_state(PDO $db, array $store): array
+{
+    desk_game_seed($db);
+    $profile = $db->query("SELECT id,avatar_key FROM game_profile WHERE id = 'default'")->fetch() ?: ['avatar_key' => 'pixel-spark'];
+    $totalXp = (int)$db->query('SELECT COALESCE(SUM(xp), 0) FROM game_events')->fetchColumn();
+    $skills = $db->query('SELECT id,title,color,position FROM game_skills ORDER BY position, title')->fetchAll();
+    $skillXp = [];
+    foreach ($db->query("SELECT skill_id, COALESCE(SUM(xp),0) AS xp FROM game_events WHERE skill_id <> '' GROUP BY skill_id")->fetchAll() as $row) {
+        $skillXp[(string)$row['skill_id']] = (int)$row['xp'];
+    }
+    foreach ($skills as &$skill) {
+        $skill['xp'] = $skillXp[(string)$skill['id']] ?? 0;
+    }
+    unset($skill);
+    $bindings = $db->query('SELECT object_type,object_id,skill_id FROM game_bindings')->fetchAll();
+    $today = desk_moscow_date();
+    $st = $db->prepare('SELECT task_id FROM game_daily_quests WHERE quest_date = ? ORDER BY position, created_at');
+    $st->execute([$today]);
+    $daily = array_map(static fn($row) => (string)$row['task_id'], $st->fetchAll());
+    $rankBindings = $db->query('SELECT object_type,object_id,rank_id,xp_override FROM game_rank_bindings')->fetchAll();
+    $dailyHabits = $db->query('SELECT d.habit_id,d.position,h.title,h.checks,b.rank_id FROM game_daily_habits d JOIN desk_habits h ON h.id = d.habit_id LEFT JOIN game_rank_bindings b ON b.object_type = \'habit\' AND b.object_id = d.habit_id ORDER BY d.position')->fetchAll();
+    $dailyDone = 0;
+    $dailyBaseXp = 0;
+    foreach ($dailyHabits as &$dailyHabit) {
+        $checks = json_decode((string)($dailyHabit['checks'] ?? '{}'), true);
+        $dailyHabit['done'] = is_array($checks) && !empty($checks[$today]);
+        $variantSt = $db->prepare('SELECT variant_id FROM game_habit_variants WHERE habit_id = ? AND completed_date = ?');
+        $variantSt->execute([(string)$dailyHabit['habit_id'], $today]);
+        $dailyHabit['variant_id'] = (string)($variantSt->fetchColumn() ?: '');
+        $dailyHabit['rank_id'] = (string)($dailyHabit['rank_id'] ?: 'gray');
+        if ($dailyHabit['variant_id'] === 'meditation-30') $dailyHabit['rank_id'] = 'blue';
+        if ($dailyHabit['variant_id'] === 'meditation-10') $dailyHabit['rank_id'] = 'green';
+        $dailyHabit['xp'] = (int)desk_game_ranks()[$dailyHabit['rank_id']]['xp'];
+        unset($dailyHabit['checks']);
+        if ($dailyHabit['done']) {
+            $dailyDone++;
+            $dailyBaseXp += (int)$dailyHabit['xp'];
+        }
+    }
+    unset($dailyHabit);
+    $dailyBonus = $dailyDone === 5 ? (int)ceil($dailyBaseXp * 0.25) : 0;
+    $bonusSt = $db->prepare("SELECT 1 FROM game_events WHERE event_key = ? LIMIT 1");
+    $bonusSt->execute(['daily_all:' . $today . ':v2']);
+    $dailyBonusAwarded = (bool)$bonusSt->fetchColumn();
+    $todayXpSt = $db->prepare('SELECT COALESCE(SUM(xp), 0) FROM game_events WHERE reward_date = ?');
+    $todayXpSt->execute([$today]);
+    $todayXp = (int)$todayXpSt->fetchColumn();
+    $pulseSt = $db->prepare('SELECT pulse_date,energy,mood,note FROM game_daily_pulses WHERE pulse_date = ?');
+    $pulseSt->execute([$today]);
+    $pulse = $pulseSt->fetch() ?: null;
+    if ($pulse) $pulse['awarded'] = true;
+    $stepHabits = desk_game_habit_steps_state($db, $today);
+    $events = $db->query('SELECT event_type,source_type,source_id,xp,skill_id,reward_date,created_at FROM game_events ORDER BY created_at DESC LIMIT 8')->fetchAll();
+    return [
+        'profile' => ['total_xp' => $totalXp, 'level' => desk_game_level($totalXp), 'avatar_key' => (string)$profile['avatar_key']],
+        'skills' => $skills,
+        'bindings' => $bindings,
+        'rank_bindings' => $rankBindings,
+        'ranks' => desk_game_ranks(),
+        'daily_quests' => $daily,
+        'daily_habits' => $dailyHabits,
+        'daily_progress' => ['done' => $dailyDone, 'total' => 5, 'bonus_xp' => $dailyBonus, 'bonus_awarded' => $dailyBonusAwarded],
+        'today_xp' => $todayXp,
+        'pulse' => $pulse,
+        'step_habits' => $stepHabits,
+        'events' => $events,
+        'rules' => ['checkpoint_xp' => 2, 'daily_bonus_percent' => 25],
+    ];
 }
 
 function desk_tg_send(string $text): bool
@@ -2206,4 +2767,112 @@ function desk_need_db(): ?PDO
 {
     $db = desk_pdo();
     return $db;
+}
+
+/** Serialize every production mutation before it reads the current snapshot. */
+function desk_acquire_write_lock(PDO $db): void
+{
+    static $held = false;
+    if ($held) {
+        return;
+    }
+    $got = (int)$db->query("SELECT GET_LOCK('secondbrain_desk_write', 30)")->fetchColumn();
+    if ($got !== 1) {
+        throw new RuntimeException('Desk write lock is unavailable');
+    }
+    $held = true;
+    register_shutdown_function(static function () use ($db): void {
+        try {
+            $db->query("SELECT RELEASE_LOCK('secondbrain_desk_write')");
+        } catch (Throwable $e) {
+        }
+    });
+}
+
+/**
+ * Private ingress: create exactly one task for an opaque source key.
+ * The caller has already acquired the process-wide write lock.
+ */
+function desk_ingress_add_task(PDO $db, array $request): array
+{
+    $source = (string)($request['source'] ?? '');
+    $key = (string)($request['idempotency_key'] ?? '');
+    $task = $request['task'] ?? null;
+    if (!in_array($source, ['codex', 'telegram'], true) || !preg_match('/^[a-f0-9]{64}$/', $key) || !is_array($task)) {
+        throw new InvalidArgumentException('ingress_request');
+    }
+    $allowed = ['title', 'status', 'due', 'area', 'notes', 'client_id', 'project_id'];
+    if (array_diff(array_keys($task), $allowed)) {
+        throw new InvalidArgumentException('ingress_fields');
+    }
+    $title = trim((string)($task['title'] ?? ''));
+    $notes = (string)($task['notes'] ?? '');
+    $area = (string)($task['area'] ?? 'работа');
+    $status = (string)($task['status'] ?? 'todo');
+    $due = $task['due'] ?? null;
+    $clientId = trim((string)($task['client_id'] ?? ''));
+    $projectId = trim((string)($task['project_id'] ?? ''));
+    if ($title === '' || mb_strlen($title) > 500 || mb_strlen($notes) > 4000 || mb_strlen($area) > 32
+        || !in_array($status, desk_statuses(), true)
+        || ($due !== null && (!is_string($due) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $due)))) {
+        throw new InvalidArgumentException('ingress_task');
+    }
+    $canonical = json_encode(['source'=>$source, 'task'=>['title'=>$title, 'status'=>$status, 'due'=>$due, 'area'=>$area, 'notes'=>$notes, 'client_id'=>$clientId, 'project_id'=>$projectId]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $hash = hash('sha256', (string)$canonical);
+    $db->beginTransaction();
+    try {
+        $seen = $db->prepare('SELECT request_sha256, task_id FROM desk_ingress_requests WHERE source=? AND request_key=? FOR UPDATE');
+        $seen->execute([$source, $key]);
+        $old = $seen->fetch();
+        if ($old) {
+            if (!hash_equals((string)$old['request_sha256'], $hash)) {
+                throw new InvalidArgumentException('ingress_conflict');
+            }
+            $row = $db->prepare('SELECT * FROM desk_tasks WHERE id=?');
+            $row->execute([(string)$old['task_id']]);
+            $taskRow = $row->fetch();
+            if (!$taskRow) {
+                throw new RuntimeException('ingress_corrupt');
+            }
+            $db->commit();
+            return ['task'=>desk_task_from_row($taskRow), 'replayed'=>true];
+        }
+        $clientTitle = '';
+        if ($clientId !== '') {
+            $client = $db->prepare('SELECT title FROM desk_clients WHERE id=?');
+            $client->execute([$clientId]);
+            $clientTitle = (string)$client->fetchColumn();
+            if ($clientTitle === '') throw new InvalidArgumentException('client_id');
+        }
+        if ($projectId !== '') {
+            $project = $db->prepare('SELECT client_id FROM desk_projects WHERE id=?');
+            $project->execute([$projectId]);
+            $projectClient = $project->fetchColumn();
+            if ($projectClient === false || ($clientId !== '' && (string)$projectClient !== $clientId)) throw new InvalidArgumentException('project_id');
+            if ($clientId === '' && (string)$projectClient !== '') {
+                $clientId = (string)$projectClient;
+                $client = $db->prepare('SELECT title FROM desk_clients WHERE id=?');
+                $client->execute([$clientId]);
+                $clientTitle = (string)$client->fetchColumn();
+            }
+        }
+        $id = desk_uuid();
+        $slug = 'ingress-' . $id;
+        $now = desk_sql_now();
+        $insert = $db->prepare('INSERT INTO desk_tasks (id,slug,title,area,client,status,due_date,due_start,due_end,all_day,notes,estimate_hours,source_file,wait_contact,wait_until,remind_at,remind_sent,project_id,client_id,blocked_by,parent_task_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+        // Keep source_file empty: legacy desk-sync deliberately preserves its
+        // empty-source leftovers, while it removes imported-file records.
+        $insert->execute([$id,$slug,$title,$area,$clientTitle,$status,$due,$due ? $due . ' 00:00:00' : null,null,1,$notes,null,'','','','',0,'',$clientId,'','',$now,$now]);
+        if ($projectId !== '') {
+            $db->prepare('INSERT INTO desk_task_directions (task_id,direction_id,created_at) VALUES (?,?,?)')->execute([$id,$projectId,$now]);
+        }
+        $db->prepare('INSERT INTO desk_ingress_requests (source,request_key,request_sha256,task_id,created_at) VALUES (?,?,?,?,?)')->execute([$source,$key,$hash,$id,$now]);
+        $db->commit();
+        $row = $db->prepare('SELECT * FROM desk_tasks WHERE id=?');
+        $row->execute([$id]);
+        return ['task'=>desk_task_from_row((array)$row->fetch()), 'replayed'=>false];
+    } catch (Throwable $e) {
+        if ($db->inTransaction()) $db->rollBack();
+        throw $e;
+    }
 }
