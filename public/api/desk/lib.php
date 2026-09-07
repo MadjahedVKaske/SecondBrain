@@ -195,6 +195,7 @@ function desk_ensure_schema(PDO $pdo): void
         "ALTER TABLE desk_tasks ADD COLUMN blocked_by VARCHAR(36) NOT NULL DEFAULT ''",
         "ALTER TABLE desk_tasks ADD COLUMN parent_task_id VARCHAR(36) NOT NULL DEFAULT ''",
         "ALTER TABLE desk_tasks ADD COLUMN estimate_hours DECIMAL(8,2) NULL",
+        "ALTER TABLE desk_habits ADD COLUMN archived TINYINT(1) NOT NULL DEFAULT 0",
         "ALTER TABLE game_rank_bindings ADD COLUMN xp_override INT NULL",
     ];
     foreach ($alters as $sql) {
@@ -572,7 +573,7 @@ function desk_load_from_db(PDO $db): array
         $out['goals'] = array_map('desk_goal_from_row', $db->query('SELECT * FROM desk_goals ORDER BY updated_at DESC')->fetchAll());
         // Completion updates updated_at; ordering by it makes a checked habit jump to the top.
         // Keep the board stable in its creation order instead.
-        $out['habits'] = array_map('desk_habit_from_row', $db->query('SELECT * FROM desk_habits ORDER BY created_at ASC, id ASC')->fetchAll());
+        $out['habits'] = array_map('desk_habit_from_row', $db->query('SELECT * FROM desk_habits WHERE archived = 0 ORDER BY created_at ASC, id ASC')->fetchAll());
     } catch (Throwable $e) {
     }
     try {
@@ -1797,23 +1798,6 @@ function desk_ensure_seed(): void
         $p['created_at'] = desk_now();
         $p['updated_at'] = desk_now();
         $store['projects'][] = $p;
-        $changed = true;
-    }
-
-    $haveH = [];
-    foreach ($store['habits'] as $h) {
-        $haveH[(string)($h['id'] ?? '')] = true;
-    }
-    $habitSeeds = [
-        ['id' => 'habit-home', 'title' => 'Убраться дома', 'checks' => []],
-    ];
-    foreach ($habitSeeds as $h) {
-        if (!empty($haveH[$h['id']])) {
-            continue;
-        }
-        $h['created_at'] = desk_now();
-        $h['updated_at'] = desk_now();
-        $store['habits'][] = $h;
         $changed = true;
     }
 

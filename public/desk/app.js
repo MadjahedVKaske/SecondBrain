@@ -311,6 +311,7 @@ function renderToday() {
     return `<button type="button" class="game-weekly-plan" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${booked.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}${planned ? ` / ${planned}` : ""} ч на этой неделе</small><span class="game-weekly-progress" aria-label="Выполнено ${progress}%"><i style="width:${progress}%"></i></span></span>${gameRankBadgeFor("task", task.id)}</button>`;
   }).join("");
   const realmMeta = [
+    { id: "general", title: "Основа", note: "устойчивость и быт", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
     { id: "clients", title: "Дело", note: "клиенты и результаты", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
     { id: "order", title: "Порядок", note: "быт и ритуалы", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
     { id: "system", title: "Система", note: "порядок и процессы", sprite: [10,11,12,18,19,20,25,26,27,28,29,34,35,36,37,38,42,43,44,45,46,50,51,52,53,58,59,60] },
@@ -327,6 +328,12 @@ function renderToday() {
       <div><strong>${realm.title}</strong><small>${realm.note}</small><div class="bar"><i style="width:${pct}%"></i></div></div>
       <b>${xp} XP</b>
     </article>`;
+  }).join("");
+  const realmTotal = realmMeta.reduce((sum, realm) => sum + Number((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0), 0);
+  const heroMarks = realmMeta.map(realm => {
+    const xp = Number((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0);
+    const strength = Math.min(1, xp / 100);
+    return `<i class="game-hero-mark game-hero-mark--${realm.id}" style="--mark-strength:${strength}" aria-label="${esc(realm.title)}: ${xp} XP"></i>`;
   }).join("");
   const skillRows = (g.skills || []).filter(s => s.id !== "general").map(s => {
     const pct = Math.min(100, Number(s.xp || 0) % 100);
@@ -363,7 +370,7 @@ function renderToday() {
   const heroPixels = [9,10,11,12,13,14,17,18,19,20,21,22,25,26,27,28,29,30,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71];
   el.innerHTML = `<section class="game-stage" aria-label="Профиль прогресса">
     <div class="game-stage-copy"><span class="game-kicker">Твоя экспедиция</span><h2>Уровень ${Number(profile.level || 1)}</h2><p>Ранг выбирается по внутренней цене квеста. Чек-лист всегда даёт +${Number(rules.checkpoint_xp || 2)} XP за пункт.</p><div class="game-stage-xp"><b>${Number(profile.total_xp || 0)} XP</b><span>до уровня: ${xpToLevel(profile.total_xp)} XP</span></div><div class="game-level-bar"><i style="width:${Number(profile.total_xp || 0) % 100}%"></i></div><small class="game-reward-rules">${esc(rewardRules)}</small></div>
-    <div class="game-hero">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span></div>
+    <div class="game-hero" aria-label="Герой собирается из опыта владений">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span><span class="game-hero-marks" aria-hidden="true">${heroMarks}</span></div>
     <div class="game-stage-signal"><span>Дейлики</span><strong>${habitsDone}/${Number(dailyProgress.total || 5)}</strong><small>${dailyProgress.bonus_awarded ? `бонус +${Number(dailyProgress.bonus_xp)} XP` : "бонус — только за 5/5"}</small></div>
   </section>
   <div class="game-today-grid">
@@ -374,7 +381,7 @@ function renderToday() {
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
       <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/5</span></div>${dailyRows}<div class="game-daily-bonus ${dailyProgress.bonus_awarded ? "done" : ""}">${dailyProgress.bonus_awarded ? `Идеальный день · +${Number(dailyProgress.bonus_xp)} XP` : "Бонус откроется, когда будут сделаны все 5/5"}</div></div>${extraRows}${pulseRows}${workLog}
     </section>
-    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><div class="game-skills-divider">Навыки</div>${skillRows}${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
+    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small><div class="game-skills-divider">Навыки</div>${skillRows}${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
   </div>`;
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => openTask(btn.closest(".game-quest").dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));

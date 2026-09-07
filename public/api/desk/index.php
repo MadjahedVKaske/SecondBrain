@@ -434,6 +434,27 @@ if ($method === 'POST' && preg_match('#^habits/([^/]+)$#', $rest, $m)) {
     desk_respond(['ok' => true, 'habit' => $row]);
 }
 
+if ($method === 'DELETE' && preg_match('#^habits/([^/]+)$#', $rest, $m)) {
+    desk_need_view();
+    $db = desk_pdo();
+    if (!$db) desk_respond(['error' => 'archive_needs_mysql'], 503);
+    try {
+        $archived = desk_game_transaction($db, static function () use ($db, $m): bool {
+            $st = $db->prepare('UPDATE desk_habits SET archived = 1, updated_at = ? WHERE id = ? AND archived = 0');
+            $st->execute([desk_sql_now(), $m[1]]);
+            if ($st->rowCount() < 1) return false;
+            // An archived habit must not remain a current daily. Historical checks,
+            // XP events and skill binding remain intact for the archive.
+            $db->prepare('DELETE FROM game_daily_habits WHERE habit_id = ?')->execute([$m[1]]);
+            return true;
+        });
+    } catch (Throwable $e) {
+        desk_respond(['error' => 'archive_failed'], 500);
+    }
+    if (!$archived) desk_respond(['error' => 'not_found'], 404);
+    desk_respond(['ok' => true, 'archived_id' => $m[1]]);
+}
+
 if ($method === 'POST' && ($rest === 'sync' || $rest === 'sync/')) {
     desk_need_admin();
     $raw = desk_body();
