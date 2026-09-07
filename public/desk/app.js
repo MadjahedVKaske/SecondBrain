@@ -278,6 +278,15 @@ function renderToday() {
   const waterHabit = habits.find(h => h.id === "habit-water-balance");
   const waterPlan = (g.step_habits || {})["habit-water-balance"] || null;
   const habitsDone = Number(dailyProgress.done || 0);
+  const dailyTotal = Number(dailyProgress.total || 0);
+  // The daily set is a private optional reward, not a standard to meet.
+  // Until it is earned it stays out of the main flow entirely.
+  // `bonus_awarded` is ledger history and may survive an undone ritual.
+  // The visible completion state must always describe today's actual set.
+  const dailySetComplete = Boolean(dailyProgress.bonus_awarded) && dailyTotal > 0 && habitsDone === dailyTotal;
+  const dailySetReward = dailySetComplete
+    ? `<div class="game-daily-bonus done">Набор ритуалов завершён · +${Number(dailyProgress.bonus_xp)} XP</div>`
+    : "";
   const dailyRows = dailyHabits.map(h => {
     const done = !!h.done;
     const isMeditation = h.id === "a81ac165-c481-4bdf-9686-6d170941a559" || h.title === "Медитация";
@@ -372,7 +381,7 @@ function renderToday() {
   el.innerHTML = `<section class="game-stage" aria-label="Профиль прогресса">
     <div class="game-stage-copy"><span class="game-kicker">Твоя экспедиция</span><h2>Уровень ${Number(profile.level || 1)}</h2><p>Ранг выбирается по внутренней цене квеста. Чек-лист всегда даёт +${Number(rules.checkpoint_xp || 2)} XP за пункт.</p><div class="game-stage-xp"><b>${Number(profile.total_xp || 0)} XP</b><span>до уровня: ${xpToLevel(profile.total_xp)} XP</span></div><div class="game-level-bar"><i style="width:${Number(profile.total_xp || 0) % 100}%"></i></div><small class="game-reward-rules">${esc(rewardRules)}</small></div>
     <div class="game-hero" aria-label="Герой собирается из опыта владений">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span><span class="game-hero-marks" aria-hidden="true">${heroMarks}</span></div>
-    <div class="game-stage-signal"><span>Дейлики</span><strong>${habitsDone}/${Number(dailyProgress.total || 5)}</strong><small>${dailyProgress.bonus_awarded ? `бонус +${Number(dailyProgress.bonus_xp)} XP` : "бонус — только за 5/5"}</small></div>
+    <div class="game-stage-signal"><span>Дейлики</span><strong>${habitsDone}/${dailyTotal || 5}</strong>${dailySetComplete ? `<small>набор · +${Number(dailyProgress.bonus_xp)} XP</small>` : ""}</div>
   </section>
   <div class="game-today-grid">
     <section class="game-focus">
@@ -380,7 +389,7 @@ function renderToday() {
       <div class="game-quests">${questRows}</div>
       ${otherTodayRows ? `<div class="game-other-today"><div class="game-daily-head">Ещё на сегодня <span>${otherTodayTasks.length}</span></div>${otherTodayRows}</div>` : ""}
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
-      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/5</span></div>${dailyRows}<div class="game-daily-bonus ${dailyProgress.bonus_awarded ? "done" : ""}">${dailyProgress.bonus_awarded ? `Идеальный день · +${Number(dailyProgress.bonus_xp)} XP` : "Бонус откроется, когда будут сделаны все 5/5"}</div></div>${extraRows}${pulseRows}${workLog}
+      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/5</span></div>${dailyRows}${dailySetReward}</div>${extraRows}${pulseRows}${workLog}
     </section>
     <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств по всему накопленному опыту">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
   </div>`;
