@@ -2929,7 +2929,13 @@ function renderHabits() {
       ${normalCheck}
       ${meditationChoice}
       ${stepQuest}
-      <section class="habit-settings-panel" aria-label="Параметры привычки"><label class="game-habit-skill"><span>Королевство</span><select>${gameSkillOptions(skillId)}</select></label><label class="game-rank-select"><span>Ранг награды</span><select>${gameRankOptions(rankId)}</select></label>${stepSettings}</section>
+      <section class="habit-settings-panel" aria-label="Параметры привычки">
+        <div class="habit-settings-controls">
+          <label class="game-habit-skill"><span>Королевство</span><select>${gameSkillOptions(skillId)}</select></label>
+          <label class="game-rank-select"><span>Ранг награды</span><select>${gameRankOptions(rankId)}</select></label>
+        </div>
+        ${stepSettings}
+      </section>
       <div class="habit-detail-progress"><span>Серия ${streak}</span><span>Рекорд ${best}</span><span>Неделя ${weekN}/7</span><span>Месяц ${monthN}</span></div>
       <details class="habit-history"><summary>История и отметки за неделю</summary>
         <div class="week">${cells}</div>

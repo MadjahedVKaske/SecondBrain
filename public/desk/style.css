@@ -706,18 +706,22 @@ details.group-done > summary.group-head .group-title {
 .habit-complete input { width:16px; height:16px; accent-color:#58b96e; }
 .habit-detail .habit-meditation-choice { margin-top:12px; padding:9px 0; }
 .habit-detail .habit-step-quest { margin:12px 0 0; }
-.habit-detail .habit-settings-panel { margin-top:13px; padding:11px; grid-template-columns:repeat(2,minmax(0,1fr)); border-color:rgba(76,109,137,.55); background:rgba(7,14,21,.42); }
+.habit-detail .habit-settings-panel { margin-top:13px; padding:11px; grid-template-columns:1fr; gap:12px; border-color:rgba(76,109,137,.55); background:rgba(7,14,21,.42); }
+.habit-detail .habit-settings-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; min-width:0; }
 .habit-detail .habit-settings-panel label { min-width:0; }
-.habit-detail .habit-settings-panel label > span { color:#9cb7cc; font-size:.66rem; }
+.habit-detail .habit-settings-panel label > span { color:#9cb7cc; font-size:.66rem; font-weight:600; letter-spacing:.01em; }
 .habit-form-title { grid-column:1 / -1; display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding-bottom:3px; color:#d8ecdf; font-size:.75rem; }
 .habit-form-title small { color:#819da5; font-size:.62rem; }
-.habit-detail .habit-water-settings { grid-column:1 / -1; padding-top:10px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.habit-detail .habit-water-settings { grid-column:1 / -1; padding-top:11px; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 12px; }
+.habit-detail .habit-water-settings label { gap:5px; padding:7px 8px 8px; border:1px solid rgba(73,113,94,.34); border-radius:8px; background:rgba(25,54,40,.16); color:#b7d1be; }
+.habit-detail .habit-water-settings label span { color:#c9e5d1; font-size:.67rem; font-weight:600; }
+.habit-detail .habit-water-settings input { width:100%; height:31px; border-color:rgba(95,152,116,.55); background:#0d1c17; color:#edf9f0; }
 .habit-detail .habit-water-settings button { grid-column:1 / -1; justify-self:start; padding:7px 10px; }
 .habit-detail-progress { display:flex; flex-wrap:wrap; gap:6px 13px; margin-top:12px; color:#91aabe; font-size:.65rem; font-variant-numeric:tabular-nums; }
 .habit-history { margin-top:12px; padding-top:10px; border-top:1px solid rgba(92,129,157,.32); }
 .habit-history > summary { color:#abcce6; font-size:.7rem; cursor:pointer; }
 .habit-history .week { margin-top:10px; }
-@media (max-width:720px) { .habit-manager { grid-template-columns:1fr; gap:11px; }.habit-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.habit-list header { grid-column:1 / -1; }.habit-list-item { min-height:55px; padding:7px; }.habit-list-item em { display:none; }.habit-detail { padding:12px; }.habit-detail-head { display:block; }.habit-detail-rank { display:inline-block; margin-top:8px; }.habit-detail .habit-settings-panel,.habit-detail .habit-water-settings { grid-template-columns:1fr; }.habit-detail .habit-water-settings label { grid-column:auto; } }
+@media (max-width:720px) { .habit-manager { grid-template-columns:1fr; gap:11px; }.habit-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.habit-list header { grid-column:1 / -1; }.habit-list-item { min-height:55px; padding:7px; }.habit-list-item em { display:none; }.habit-detail { padding:12px; }.habit-detail-head { display:block; }.habit-detail-rank { display:inline-block; margin-top:8px; }.habit-detail .habit-settings-panel,.habit-detail .habit-settings-controls,.habit-detail .habit-water-settings { grid-template-columns:1fr; }.habit-detail .habit-water-settings label { grid-column:auto; } }
 .habit-growth { position:relative; margin:0 0 14px; padding:18px; overflow:hidden; border:1px solid #29445a; border-radius:14px; background:#111d28; }
 .habit-growth::before { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 14% 0%,rgba(63,185,80,.13),transparent 36%),radial-gradient(circle at 86% 100%,rgba(88,166,255,.1),transparent 38%); }
 .habit-growth > * { position:relative; }
