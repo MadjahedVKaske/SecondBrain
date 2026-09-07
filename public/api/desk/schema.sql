@@ -267,6 +267,7 @@ CREATE TABLE IF NOT EXISTS game_habit_step_plans (
   habit_id       VARCHAR(64) NOT NULL PRIMARY KEY,
   steps_required INT NOT NULL,
   step_xp        INT NOT NULL DEFAULT 2,
+  target_ml      INT NULL,
   start_date     DATE NOT NULL,
   end_date       DATE NOT NULL,
   label          VARCHAR(190) NOT NULL DEFAULT '',

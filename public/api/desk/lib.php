@@ -197,6 +197,7 @@ function desk_ensure_schema(PDO $pdo): void
         "ALTER TABLE desk_tasks ADD COLUMN estimate_hours DECIMAL(8,2) NULL",
         "ALTER TABLE desk_habits ADD COLUMN archived TINYINT(1) NOT NULL DEFAULT 0",
         "ALTER TABLE game_rank_bindings ADD COLUMN xp_override INT NULL",
+        "ALTER TABLE game_habit_step_plans ADD COLUMN target_ml INT NULL",
     ];
     foreach ($alters as $sql) {
         try {
@@ -1983,8 +1984,9 @@ function desk_game_seed(PDO $db): void
         $skillInsert->execute(['habit', $id, $skill, $now, $now]);
     }
     $waterEnd = (new DateTimeImmutable(desk_moscow_date()))->modify('+13 days')->format('Y-m-d');
-    $waterPlan = $db->prepare('INSERT IGNORE INTO game_habit_step_plans (habit_id,steps_required,step_xp,start_date,end_date,label,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)');
-    $waterPlan->execute(['habit-water-balance', 3, 2, desk_moscow_date(), $waterEnd, '3 × 250 мл = 750 мл · цель 700–750 мл', $now, $now]);
+    $waterPlan = $db->prepare('INSERT IGNORE INTO game_habit_step_plans (habit_id,steps_required,step_xp,target_ml,start_date,end_date,label,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)');
+    $waterPlan->execute(['habit-water-balance', 3, 2, 750, desk_moscow_date(), $waterEnd, '3 × 250 мл = 750 мл · цель 750 мл', $now, $now]);
+    $db->exec('UPDATE game_habit_step_plans SET target_ml = steps_required * 250 WHERE target_ml IS NULL');
 }
 
 function desk_game_ranks(): array
@@ -2114,9 +2116,33 @@ function desk_game_validate_habit_variant(PDO $db, string $habitId, string $date
 
 function desk_game_habit_step_plan(PDO $db, string $habitId, string $date): ?array
 {
-    $st = $db->prepare('SELECT habit_id,steps_required,step_xp,start_date,end_date,label FROM game_habit_step_plans WHERE habit_id = ? AND ? BETWEEN start_date AND end_date');
+    $st = $db->prepare('SELECT habit_id,steps_required,step_xp,target_ml,start_date,end_date,label FROM game_habit_step_plans WHERE habit_id = ? AND ? BETWEEN start_date AND end_date');
     $st->execute([$habitId, $date]);
     return $st->fetch() ?: null;
+}
+
+function desk_game_habit_step_label(int $steps, int $targetMl): string
+{
+    if ($targetMl % $steps === 0) {
+        return $steps . ' × ' . intdiv($targetMl, $steps) . ' мл = ' . $targetMl . ' мл · цель ' . $targetMl . ' мл';
+    }
+    return $steps . ' стакана · цель ' . $targetMl . ' мл';
+}
+
+/** Updates only the plan configuration; prior rewards stay immutable in the ledger. */
+function desk_game_set_habit_step_plan(PDO $db, string $habitId, int $steps, int $targetMl): ?array
+{
+    if ($habitId === '' || $steps < 1 || $steps > 12 || $targetMl < 100 || $targetMl > 5000) {
+        return null;
+    }
+    $exists = $db->prepare('SELECT habit_id FROM game_habit_step_plans WHERE habit_id = ?');
+    $exists->execute([$habitId]);
+    if (!$exists->fetchColumn()) return null;
+    $now = desk_sql_now();
+    $label = desk_game_habit_step_label($steps, $targetMl);
+    $st = $db->prepare('UPDATE game_habit_step_plans SET steps_required = ?, target_ml = ?, label = ?, updated_at = ? WHERE habit_id = ?');
+    $st->execute([$steps, $targetMl, $label, $now, $habitId]);
+    return ['habit_id' => $habitId, 'total' => $steps, 'target_ml' => $targetMl, 'label' => $label];
 }
 
 function desk_game_habit_step_add(PDO $db, string $habitId, string $date, int $stepNo): ?array
@@ -2143,7 +2169,7 @@ function desk_game_habit_step_add(PDO $db, string $habitId, string $date, int $s
 /** Active multi-step habits and their already recorded steps for one date. */
 function desk_game_habit_steps_state(PDO $db, string $date): array
 {
-    $plans = $db->prepare('SELECT habit_id,steps_required,step_xp,start_date,end_date,label FROM game_habit_step_plans WHERE ? BETWEEN start_date AND end_date');
+    $plans = $db->prepare('SELECT habit_id,steps_required,step_xp,target_ml,start_date,end_date,label FROM game_habit_step_plans WHERE ? BETWEEN start_date AND end_date');
     $plans->execute([$date]);
     $out = [];
     foreach ($plans->fetchAll() as $plan) {
@@ -2152,6 +2178,7 @@ function desk_game_habit_steps_state(PDO $db, string $date): array
         $out[(string)$plan['habit_id']] = [
             'total' => (int)$plan['steps_required'],
             'step_xp' => (int)$plan['step_xp'],
+            'target_ml' => (int)($plan['target_ml'] ?? 0),
             'label' => (string)$plan['label'],
             'start_date' => (string)$plan['start_date'],
             'end_date' => (string)$plan['end_date'],

@@ -422,6 +422,21 @@ if ($method === 'POST' && preg_match('#^habits/([^/]+)/steps$#', $rest, $m)) {
     desk_respond(['ok' => true, 'progress' => $progress]);
 }
 
+if ($method === 'POST' && ($rest === 'game/habit-step-plans' || $rest === 'game/habit-step-plans/')) {
+    desk_need_view();
+    $db = desk_need_db();
+    if (!$db) desk_respond(['ok' => false, 'error' => 'no_db'], 503);
+    $raw = desk_body();
+    $plan = desk_game_set_habit_step_plan(
+        $db,
+        trim((string)($raw['habit_id'] ?? '')),
+        (int)($raw['steps_required'] ?? 0),
+        (int)($raw['target_ml'] ?? 0)
+    );
+    if (!$plan) desk_respond(['ok' => false, 'error' => 'bad_step_plan'], 400);
+    desk_respond(['ok' => true, 'plan' => $plan]);
+}
+
 if ($method === 'POST' && preg_match('#^habits/([^/]+)$#', $rest, $m)) {
     desk_need_view();
     $raw = desk_body();

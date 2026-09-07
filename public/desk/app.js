@@ -2908,23 +2908,29 @@ function renderHabits() {
           ? `<div class="habit-meditation-choice"><span>Сегодня</span><button type="button" data-variant="${esc(meditationVariant)}">Вернуть: ${meditationVariant === "meditation-30" ? "30" : "10"} минут</button></div>`
           : `<div class="habit-meditation-choice" role="group" aria-label="Выбрать длительность медитации"><span>Сегодня</span><button type="button" data-variant="meditation-10">10 минут · +5 XP</button><button type="button" data-variant="meditation-30">30 минут · +12 XP</button></div>`)
       : "";
-    const stepDone = new Set((stepPlan?.done_steps || []).map(Number));
+    const stepTotal = Number(stepPlan?.total || 0);
+    const stepTargetMl = Number(stepPlan?.target_ml || stepTotal * 250);
+    const stepLabel = stepTotal > 0 && stepTargetMl % stepTotal === 0
+      ? `${stepTotal} × ${stepTargetMl / stepTotal} мл = ${stepTargetMl} мл · цель ${stepTargetMl} мл`
+      : `${stepTotal} стакана · цель ${stepTargetMl} мл`;
+    const stepDone = new Set((stepPlan?.done_steps || []).map(Number).filter(step => step <= stepTotal));
     const stepQuest = isStepHabit ? `<div class="habit-step-quest ${on ? "habit-step-quest--done" : ""}">
-      <div class="habit-step-head"><span>Сегодня · ${stepDone.size}/${Number(stepPlan.total)} стакана</span><b>${esc(stepPlan.label || "3 × 250 мл = 750 мл")}</b></div>
-      <div class="habit-step-buttons">${Array.from({ length: Number(stepPlan.total) }, (_, index) => {
+      <div class="habit-step-head"><span>Сегодня · ${stepDone.size}/${stepTotal} стакана</span><b>${esc(stepLabel)}</b></div>
+      <div class="habit-step-buttons">${Array.from({ length: stepTotal }, (_, index) => {
         const step = index + 1;
         const doneStep = stepDone.has(step);
         return `<button type="button" data-step="${step}" ${doneStep ? "disabled" : ""}>${doneStep ? "✓" : step}. стакан · +${Number(stepPlan.step_xp)} XP</button>`;
       }).join("")}</div>
-      <small>${on ? `Зелёная награда +${Number(rankMeta.xp)} XP получена` : `После ${Number(stepPlan.total)}-го стакана: зелёная награда +${Number(rankMeta.xp)} XP`}</small>
+      <small>${on ? `Зелёная награда +${Number(rankMeta.xp)} XP получена` : `После ${stepTotal}-го стакана: зелёная награда +${Number(rankMeta.xp)} XP`}</small>
     </div>` : "";
+    const stepSettings = isStepHabit ? `<div class="habit-water-settings"><label><span>Стаканов</span><input type="number" min="1" max="12" step="1" data-water-steps value="${stepTotal}"/></label><label><span>Цель, мл</span><input type="number" min="100" max="5000" step="50" data-water-target value="${stepTargetMl}"/></label><button type="button" data-water-plan-save>Сохранить воду</button><small>Настройка меняет следующие отметки; уже полученный XP не пересчитывается.</small></div>` : "";
     return `<div class="habit card" data-id="${esc(h.id)}">
       <div class="habit-title-row">
         ${titleControl}${isExtraDaily ? '<span class="habit-extra-badge">Экстра-дейлик</span>' : ""}
       </div>
       ${meditationChoice}
       ${stepQuest}
-      <div class="habit-meta-row"><span class="habit-summary">серия ${streak} · рекорд ${best} · неделя ${weekN}/7 · месяц ${monthN}</span><details class="habit-settings"><summary><span>${esc(skillTitle)} · ${esc(rankMeta.title)} · ${Number(rankMeta.xp)} XP</span><i>Настроить</i></summary><div class="game-habit-controls"><label class="game-habit-skill"><span>Навык</span><select>${gameSkillOptions(skillId)}</select></label><label class="game-rank-select"><span>XP</span><select>${gameRankOptions(rankId)}</select></label></div></details></div>
+      <div class="habit-meta-row"><span class="habit-summary">серия ${streak} · рекорд ${best} · неделя ${weekN}/7 · месяц ${monthN}</span><details class="habit-settings"><summary><span>${esc(skillTitle)} · ${esc(rankMeta.title)} · ${Number(rankMeta.xp)} XP</span><i>Настроить</i></summary><div class="habit-settings-panel"><label class="game-habit-skill"><span>Королевство</span><select>${gameSkillOptions(skillId)}</select></label><label class="game-rank-select"><span>Ранг</span><select>${gameRankOptions(rankId)}</select></label>${stepSettings}</div></details></div>
       <div class="week">${cells}</div>
       <details class="more"><summary>12 недель</summary>
         <div class="heat-wrap">
@@ -2967,6 +2973,14 @@ function renderHabits() {
     if (rank) rank.addEventListener("change", async () => {
       const out = await api("game/ranks", { object_type: "habit", object_id: id, rank_id: rank.value });
       if (!out || !out.ok) { toast("XP привычки не сохранился"); return; }
+      await load();
+    });
+    const waterPlanSave = box.querySelector("[data-water-plan-save]");
+    if (waterPlanSave) waterPlanSave.addEventListener("click", async () => {
+      const steps = Number(box.querySelector("[data-water-steps]")?.value);
+      const targetMl = Number(box.querySelector("[data-water-target]")?.value);
+      const out = await api("game/habit-step-plans", { habit_id: id, steps_required: steps, target_ml: targetMl });
+      if (!out || !out.ok) { toast("Не удалось сохранить водный баланс"); return; }
       await load();
     });
     box.querySelectorAll(".wd").forEach(btn => {
