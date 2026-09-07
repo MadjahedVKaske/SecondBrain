@@ -141,6 +141,7 @@
 | [2026-08-15-desk-task-card-compact.md](brain/plans/2026-08-15-desk-task-card-compact.md) | P0, закрыт |
 | [2026-08-15-desk-watch-100.md](brain/plans/2026-08-15-desk-watch-100.md) | watcher, отложен |
 | [2026-08-15-hook-guard-delai.md](brain/plans/2026-08-15-hook-guard-delai.md) | хук «делай», после P5 |
+| [2026-09-07-expedition-milestones.md](brain/plans/2026-09-07-expedition-milestones.md) | игра, зарядка, питание |
 
 ### Клиенты (`brain/wiki/clients/`)
 

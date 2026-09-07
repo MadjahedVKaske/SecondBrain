@@ -923,3 +923,25 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   .realm-map { min-height:500px; background-position:center; }.realm-map-zone { width:calc(50% - 17px); min-width:0; padding:6px; }.realm-map-zone--clients { top:4%; left:4%; }.realm-map-zone--health { top:4%; right:4%; }.realm-map-zone--order { bottom:4%; left:4%; }.realm-map-zone--system { right:4%; bottom:4%; }.realm-map-hero { top:50%; }.realm-map-zone-head { grid-template-columns:14px minmax(0,1fr); }.realm-map-zone-head strong { display:none; }.realm-map-sigil { width:11px; height:11px; }.realm-map-nodes { gap:3px; margin-top:5px; }.realm-node { grid-template-columns:6px minmax(0,1fr); gap:2px 3px; padding:3px 4px; font-size:.55rem; }.realm-node-orb { width:5px; height:5px; }.realm-node small { display:none; }.realm-map-count { margin-top:5px; font-size:.52rem; }
   body.drawer-on .wrap { margin-right: 0; }
 }
+
+/* This inspector needs vertical field groups.  The generic game controls are
+   horizontal elsewhere, so reset them at the end of the cascade here. */
+.habit-detail .habit-settings-panel .game-habit-skill,
+.habit-detail .habit-settings-panel .game-rank-select {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:5px;
+  align-items:stretch;
+  justify-content:stretch;
+}
+.habit-detail .habit-settings-panel .game-habit-skill > span,
+.habit-detail .habit-settings-panel .game-rank-select > span {
+  display:block;
+  line-height:1.2;
+}
+.habit-detail .habit-settings-panel .game-habit-skill select,
+.habit-detail .habit-settings-panel .game-rank-select select {
+  width:100%;
+  min-width:0;
+  margin:0;
+}
