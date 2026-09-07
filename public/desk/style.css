@@ -645,6 +645,7 @@ details.group-done > summary.group-head .group-title {
 .habit-meditation-choice > span { margin-right:auto; color:#c7d9e8; }
 .habit-meditation-choice button { min-height:28px; border:1px solid #4b7192; border-radius:6px; background:#112438; color:#cce5fb; padding:4px 7px; font:inherit; font-size:.68rem; cursor:pointer; }
 .habit-meditation-choice button:hover { border-color:#8ecbff; background:#17354f; color:#fff; }
+.habit-meditation-choice button.is-selected { border-color:#76c9ff; background:#173a57; color:#fff; }
 .habit-meditation-choice--done { border-color:rgba(63,185,80,.45); }
 .habit-meditation-choice--done b { color:#8fda9b; font-weight:600; }
 .habit-meditation-choice--done .habit-meditation-reset { border-color:#526170; background:transparent; color:#aab7c4; }
@@ -677,6 +678,46 @@ details.group-done > summary.group-head .group-title {
 .habit-water-settings button { justify-self:start; min-height:30px; border:1px solid #4f9566; border-radius:6px; background:#183b28; color:#c4efcf; padding:5px 8px; cursor:pointer; font:inherit; font-size:.72rem; }
 .habit-water-settings button:hover { border-color:#76d28e; background:#235435; }
 .habit-water-settings small { grid-column:1 / -1; color:#789187; font-size:.64rem; line-height:1.3; }
+/* The routine manager deliberately shows one habit at a time.  The map above
+   already tells the story; this area is only for doing and configuring. */
+#habit-stats { display:none; }
+#habits { display:block; }
+.habit-manager { display:grid; grid-template-columns:minmax(220px, .38fr) minmax(0, 1fr); gap:16px; align-items:start; margin-top:14px; }
+.habit-list { display:grid; gap:5px; padding:0; }
+.habit-list header { margin:0 0 5px; padding:2px 2px 9px; border-bottom:1px solid rgba(98,133,162,.35); }
+.habit-list h2 { margin:0; color:#dfeefa; font-size:.88rem; letter-spacing:.01em; }
+.habit-list p { margin:4px 0 0; color:#90a9bd; font-size:.69rem; line-height:1.38; }
+.habit-list-item { display:grid; grid-template-columns:10px minmax(0,1fr) auto; gap:9px; align-items:center; width:100%; padding:8px 9px; border:1px solid transparent; border-radius:9px; background:transparent; color:#d8e7f3; font:inherit; text-align:left; cursor:pointer; }
+.habit-list-item:hover { border-color:rgba(91,141,181,.62); background:#152433; }
+.habit-list-item.is-selected { border-color:#5a99cf; background:#132b3d; box-shadow:0 8px 19px rgba(0,0,0,.18); }
+.habit-list-item b,.habit-list-item small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.habit-list-item b { font-size:.77rem; }
+.habit-list-item small { margin-top:2px; color:#83a0b6; font-size:.62rem; }
+.habit-list-item em { color:#b7cfdf; font-size:.62rem; font-style:normal; white-space:nowrap; }
+.habit-list-mark { width:7px; height:7px; border:1px solid currentColor; border-radius:50%; color:#7f8c98; }
+.habit-list-mark.rank-gray { color:#8c98a4; }.habit-list-mark.rank-green { color:#63c778; }.habit-list-mark.rank-blue { color:#68b7ff; }.habit-list-mark.rank-purple { color:#c69cff; }.habit-list-mark.rank-gold { color:#ffd166; }.habit-list-mark.rank-red { color:#ef6b73; }
+.habit-inspector { min-width:0; }
+.habit-detail { padding:15px; border:1px solid #34516b; border-radius:13px; background:linear-gradient(145deg,#132230,#0f1923); box-shadow:0 10px 26px rgba(0,0,0,.22); }
+.habit-detail-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; padding-bottom:11px; border-bottom:1px solid rgba(92,129,157,.37); }
+.habit-detail-head h3 { margin:0; color:#f0f7fc; font-size:1rem; letter-spacing:-.015em; }
+.habit-detail-head p { margin:4px 0 0; color:#91a9bd; font-size:.67rem; }
+.habit-detail-rank { flex:none; border:1px solid rgba(113,159,197,.45); border-radius:999px; color:#c9e5fb; padding:4px 7px; font-size:.63rem; white-space:nowrap; }
+.habit-complete { display:flex; align-items:center; gap:8px; margin-top:12px; color:#d7ebdf; font-size:.78rem; cursor:pointer; }
+.habit-complete input { width:16px; height:16px; accent-color:#58b96e; }
+.habit-detail .habit-meditation-choice { margin-top:12px; padding:9px 0; }
+.habit-detail .habit-step-quest { margin:12px 0 0; }
+.habit-detail .habit-settings-panel { margin-top:13px; padding:11px; grid-template-columns:repeat(2,minmax(0,1fr)); border-color:rgba(76,109,137,.55); background:rgba(7,14,21,.42); }
+.habit-detail .habit-settings-panel label { min-width:0; }
+.habit-detail .habit-settings-panel label > span { color:#9cb7cc; font-size:.66rem; }
+.habit-form-title { grid-column:1 / -1; display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding-bottom:3px; color:#d8ecdf; font-size:.75rem; }
+.habit-form-title small { color:#819da5; font-size:.62rem; }
+.habit-detail .habit-water-settings { grid-column:1 / -1; padding-top:10px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.habit-detail .habit-water-settings button { grid-column:1 / -1; justify-self:start; padding:7px 10px; }
+.habit-detail-progress { display:flex; flex-wrap:wrap; gap:6px 13px; margin-top:12px; color:#91aabe; font-size:.65rem; font-variant-numeric:tabular-nums; }
+.habit-history { margin-top:12px; padding-top:10px; border-top:1px solid rgba(92,129,157,.32); }
+.habit-history > summary { color:#abcce6; font-size:.7rem; cursor:pointer; }
+.habit-history .week { margin-top:10px; }
+@media (max-width:720px) { .habit-manager { grid-template-columns:1fr; gap:11px; }.habit-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.habit-list header { grid-column:1 / -1; }.habit-list-item { min-height:55px; padding:7px; }.habit-list-item em { display:none; }.habit-detail { padding:12px; }.habit-detail-head { display:block; }.habit-detail-rank { display:inline-block; margin-top:8px; }.habit-detail .habit-settings-panel,.habit-detail .habit-water-settings { grid-template-columns:1fr; }.habit-detail .habit-water-settings label { grid-column:auto; } }
 .habit-growth { position:relative; margin:0 0 14px; padding:18px; overflow:hidden; border:1px solid #29445a; border-radius:14px; background:#111d28; }
 .habit-growth::before { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 14% 0%,rgba(63,185,80,.13),transparent 36%),radial-gradient(circle at 86% 100%,rgba(88,166,255,.1),transparent 38%); }
 .habit-growth > * { position:relative; }

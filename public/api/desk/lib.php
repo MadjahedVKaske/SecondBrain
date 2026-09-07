@@ -1628,6 +1628,33 @@ function desk_add_work(array $raw): ?array
     return $row;
 }
 
+/**
+ * Validated correction for a recorded work entry.  This is intentionally a
+ * narrow domain operation: callers may change only task, date, hours and note.
+ */
+function desk_update_work(string $workId, array $raw): ?array
+{
+    $workId = trim($workId);
+    if ($workId === '') return null;
+    $store = desk_load_store();
+    $i = desk_find_in($store['works'] ?? [], $workId);
+    if ($i === null) return null;
+    $old = $store['works'][$i];
+    $taskId = trim((string)($raw['task_id'] ?? $old['task_id'] ?? ''));
+    $hours = array_key_exists('hours', $raw) ? (float)$raw['hours'] : (float)($old['hours'] ?? 0);
+    $date = trim((string)($raw['date'] ?? $old['date'] ?? desk_moscow_date()));
+    if ($taskId === '' || $hours <= 0 || desk_find_in($store['tasks'] ?? [], $taskId) === null) return null;
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) return null;
+    $store['works'][$i] = array_merge($old, [
+        'task_id' => $taskId,
+        'date' => $date,
+        'hours' => round($hours, 2),
+        'note' => array_key_exists('note', $raw) ? trim((string)$raw['note']) : (string)($old['note'] ?? ''),
+    ]);
+    desk_save_store($store);
+    return $store['works'][$i];
+}
+
 function desk_put_event(array $raw): array
 {
     $store = desk_load_store();
@@ -2105,7 +2132,14 @@ function desk_game_validate_habit_variant(PDO $db, string $habitId, string $date
     $st->execute([$habitId, $date]);
     $saved = (string)($st->fetchColumn() ?: '');
     if ($saved !== '') {
-        return $saved === $variantId;
+        if ($saved === $variantId) return true;
+        // After an accidental check is cancelled, the duration is still kept
+        // as the last choice, but the user may choose the other real duration
+        // before recording the replacement completion.
+        $checksSt = $db->prepare('SELECT checks FROM desk_habits WHERE id = ?');
+        $checksSt->execute([$habitId]);
+        $checks = json_decode((string)($checksSt->fetchColumn() ?: '{}'), true);
+        return !is_array($checks) || empty($checks[$date]);
     }
     // One completed daily is one fact in the ledger.  Do not silently rewrite
     // its XP later by replacing 10 minutes with 30 minutes.
@@ -2301,7 +2335,11 @@ function desk_game_after_habit_check(PDO $db, array $habit, string $date, bool $
     } elseif ($variantId === 'meditation-10') {
         $rank = 'green';
     }
+    $previousVariant = '';
     if ($variantId !== '') {
+        $previous = $db->prepare('SELECT variant_id FROM game_habit_variants WHERE habit_id = ? AND completed_date = ?');
+        $previous->execute([$id, $date]);
+        $previousVariant = (string)($previous->fetchColumn() ?: '');
         $now = desk_sql_now();
         $st = $db->prepare('INSERT INTO game_habit_variants (habit_id,completed_date,variant_id,created_at,updated_at) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE variant_id=VALUES(variant_id), updated_at=VALUES(updated_at)');
         $st->execute([$id, $date, $variantId, $now, $now]);
@@ -2309,6 +2347,19 @@ function desk_game_after_habit_check(PDO $db, array $habit, string $date, bool $
     $xp = (int)desk_game_ranks()[$rank]['xp'];
     desk_game_award_once($db, 'habit:' . $id . ':' . $date . ':done', 'daily_done', 'habit', $id, $xp, desk_game_skill_for($db, 'habit', $id), $date);
 
+    // A cancelled meditation can be re-recorded with the other duration.
+    // Keep its one fact and one ledger event; only revalue that event.
+    if ($variantId !== '' && $previousVariant !== '' && $previousVariant !== $variantId) {
+        $update = $db->prepare('UPDATE game_events SET xp = ? WHERE event_key = ?');
+        $update->execute([$xp, 'habit:' . $id . ':' . $date . ':done']);
+    }
+
+    desk_game_refresh_daily_bonus($db, $date);
+}
+
+/** Keep the one all-dailies bonus in sync with a corrected meditation duration. */
+function desk_game_refresh_daily_bonus(PDO $db, string $date): void
+{
     $rows = $db->query('SELECT d.habit_id, h.checks, b.rank_id FROM game_daily_habits d JOIN desk_habits h ON h.id = d.habit_id LEFT JOIN game_rank_bindings b ON b.object_type = \'habit\' AND b.object_id = d.habit_id ORDER BY d.position')->fetchAll();
     if (count($rows) !== 5) {
         return;
@@ -2329,7 +2380,16 @@ function desk_game_after_habit_check(PDO $db, array $habit, string $date, bool $
         $dailyXp += (int)desk_game_ranks()[$dailyRank]['xp'];
     }
     $bonus = (int)ceil($dailyXp * 0.25);
-    desk_game_award_once($db, 'daily_all:' . $date . ':v2', 'daily_set_done', 'daily_set', $date, $bonus, 'system', $date);
+    $key = 'daily_all:' . $date . ':v2';
+    $exists = $db->prepare('SELECT id FROM game_events WHERE event_key = ?');
+    $exists->execute([$key]);
+    $eventId = (string)($exists->fetchColumn() ?: '');
+    if ($eventId !== '') {
+        $update = $db->prepare('UPDATE game_events SET xp = ? WHERE id = ?');
+        $update->execute([$bonus, $eventId]);
+        return;
+    }
+    desk_game_award_once($db, $key, 'daily_set_done', 'daily_set', $date, $bonus, 'system', $date);
 }
 
 /** Revalues the append-only reward ledger without creating a second reward. */

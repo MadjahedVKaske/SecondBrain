@@ -296,6 +296,18 @@ if ($method === 'POST' && ($rest === 'works' || $rest === 'works/')) {
     desk_respond(['ok' => true, 'work' => $row]);
 }
 
+// Narrow local API for correcting an already recorded work entry.  It keeps
+// normal Desk validation and storage paths intact, rather than inviting raw
+// SQL edits for routine bookkeeping.
+if ($method === 'POST' && preg_match('#^works/([^/]+)$#', $rest, $m)) {
+    desk_need_view();
+    $row = desk_update_work($m[1], desk_body());
+    if (!$row) {
+        desk_respond(['ok' => false, 'error' => 'bad_or_missing_work'], 400);
+    }
+    desk_respond(['ok' => true, 'work' => $row]);
+}
+
 if ($method === 'POST' && preg_match('#^works/([^/]+)/delete$#', $rest, $m)) {
     desk_need_view();
     desk_respond(['ok' => desk_delete_item('works', $m[1])]);

@@ -25,6 +25,7 @@ let SHOW_DONE = localStorage.getItem("desk_show_done") !== "0";
 let DIGEST_MODE = localStorage.getItem("desk_digest_mode") || "morning";
 let DESK_MODE = localStorage.getItem("desk_mode") || "light";
 let REALM_MAP_SCENIC = localStorage.getItem("desk_realm_map_scenic") === "1";
+let SELECTED_HABIT_ID = localStorage.getItem("desk_selected_habit") || "";
 const OPEN_QUEST_CHECKLISTS = new Set();
 
 const AREA_COLOR = {
@@ -2877,13 +2878,14 @@ function renderHabits() {
       <div><b>${s.done}</b><span>отметок всего</span></div>
       <div><b>${s.avg}</b><span>среднее за день</span></div>` : "";
   }
-  el.innerHTML = habits.map(h => {
+  const isExtraHabit = h => h.id === "habit-extra-nap" || String(h.title || "").trim().toLowerCase() === "20 отжиманий с переходом на ноги";
+  const renderHabitDetail = h => {
     const checks = h.checks || {};
     const on = !!checks[STATE.today];
     const isMeditation = String(h.title || "").trim().toLowerCase() === "медитация";
     const stepPlan = (game()?.step_habits || {})[h.id] || null;
     const isStepHabit = !!stepPlan;
-    const isExtraDaily = h.id === "habit-extra-nap";
+    const isExtraDaily = isExtraHabit(h);
     const meditationDaily = (game()?.daily_habits || []).find(item => item.habit_id === h.id);
     const meditationVariant = meditationDaily?.variant_id || "";
     const streak = habitStreak(checks);
@@ -2898,14 +2900,11 @@ function renderHabits() {
     const cells = week.map((k, i) =>
       `<button type="button" class="wd ${checks[k] ? "on" : ""} ${k === STATE.today ? "today" : ""}" data-d="${k}" ${(isMeditation || isStepHabit) && k === STATE.today ? 'disabled title="Отметь выполнение в карточке выше"' : ""}>${names[i]}</button>`
     ).join("");
-    const titleControl = (isMeditation || isStepHabit)
-      ? `<b>${esc(h.title)}</b>`
-      : `<label class="row"><input type="checkbox" ${on ? "checked" : ""}/> <b>${esc(h.title)}</b></label>`;
     const meditationChoice = isMeditation
       ? (on
-        ? `<div class="habit-meditation-choice habit-meditation-choice--done"><span>Сегодня</span><b>${meditationVariant === "meditation-30" ? "30 минут" : "10 минут"} · опыт получен</b><button type="button" class="habit-meditation-reset">Отменить</button></div>`
+        ? `<div class="habit-meditation-choice habit-meditation-choice--done"><span>Сегодня</span><b>${meditationVariant === "meditation-30" ? "30 минут" : "10 минут"} · опыт получен</b><button type="button" class="habit-meditation-reset">Отменить отметку</button></div>`
         : meditationVariant
-          ? `<div class="habit-meditation-choice"><span>Сегодня</span><button type="button" data-variant="${esc(meditationVariant)}">Вернуть: ${meditationVariant === "meditation-30" ? "30" : "10"} минут</button></div>`
+          ? `<div class="habit-meditation-choice" role="group" aria-label="Выбрать длительность медитации"><span>Сегодня · выбери длительность</span><button type="button" class="${meditationVariant === "meditation-10" ? "is-selected" : ""}" data-variant="meditation-10">10 минут · +12 XP</button><button type="button" class="${meditationVariant === "meditation-30" ? "is-selected" : ""}" data-variant="meditation-30">30 минут · +25 XP</button></div>`
           : `<div class="habit-meditation-choice" role="group" aria-label="Выбрать длительность медитации"><span>Сегодня</span><button type="button" data-variant="meditation-10">10 минут · +5 XP</button><button type="button" data-variant="meditation-30">30 минут · +12 XP</button></div>`)
       : "";
     const stepTotal = Number(stepPlan?.total || 0);
@@ -2923,26 +2922,41 @@ function renderHabits() {
       }).join("")}</div>
       <small>${on ? `Зелёная награда +${Number(rankMeta.xp)} XP получена` : `После ${stepTotal}-го стакана: зелёная награда +${Number(rankMeta.xp)} XP`}</small>
     </div>` : "";
-    const stepSettings = isStepHabit ? `<div class="habit-water-settings"><label><span>Стаканов</span><input type="number" min="1" max="12" step="1" data-water-steps value="${stepTotal}"/></label><label><span>Цель, мл</span><input type="number" min="100" max="5000" step="50" data-water-target value="${stepTargetMl}"/></label><button type="button" data-water-plan-save>Сохранить воду</button><small>Настройка меняет следующие отметки; уже полученный XP не пересчитывается.</small></div>` : "";
-    return `<div class="habit card" data-id="${esc(h.id)}">
-      <div class="habit-title-row">
-        ${titleControl}${isExtraDaily ? '<span class="habit-extra-badge">Экстра-дейлик</span>' : ""}
-      </div>
+    const stepSettings = isStepHabit ? `<section class="habit-water-settings" aria-label="Настройки водного баланса"><div class="habit-form-title"><b>План воды</b><small>На следующие отметки</small></div><label><span>Стаканов в день</span><input type="number" min="1" max="12" step="1" data-water-steps value="${stepTotal}"/></label><label><span>Цель в миллилитрах</span><input type="number" min="100" max="5000" step="50" data-water-target value="${stepTargetMl}"/></label><button type="button" data-water-plan-save>Сохранить параметры</button><small>Полученный опыт и прошлые отметки остаются как есть.</small></section>` : "";
+    const normalCheck = (!isMeditation && !isStepHabit) ? `<label class="habit-complete"><input type="checkbox" ${on ? "checked" : ""}/><span>${on ? "Сделано сегодня" : "Отметить сегодня"}</span></label>` : "";
+    return `<section class="habit-detail" data-id="${esc(h.id)}">
+      <header class="habit-detail-head"><div><h3>${esc(h.title)}</h3><p>${isExtraDaily ? "Экстра-дейлик · по желанию" : "Основной дейлик"} · ${esc(skillTitle)}</p></div><span class="habit-detail-rank">${esc(rankMeta.title)} · ${Number(rankMeta.xp)} XP</span></header>
+      ${normalCheck}
       ${meditationChoice}
       ${stepQuest}
-      <div class="habit-meta-row"><span class="habit-summary">серия ${streak} · рекорд ${best} · неделя ${weekN}/7 · месяц ${monthN}</span><details class="habit-settings"><summary><span>${esc(skillTitle)} · ${esc(rankMeta.title)} · ${Number(rankMeta.xp)} XP</span><i>Настроить</i></summary><div class="habit-settings-panel"><label class="game-habit-skill"><span>Королевство</span><select>${gameSkillOptions(skillId)}</select></label><label class="game-rank-select"><span>Ранг</span><select>${gameRankOptions(rankId)}</select></label>${stepSettings}</div></details></div>
-      <div class="week">${cells}</div>
-      <details class="more"><summary>12 недель</summary>
+      <section class="habit-settings-panel" aria-label="Параметры привычки"><label class="game-habit-skill"><span>Королевство</span><select>${gameSkillOptions(skillId)}</select></label><label class="game-rank-select"><span>Ранг награды</span><select>${gameRankOptions(rankId)}</select></label>${stepSettings}</section>
+      <div class="habit-detail-progress"><span>Серия ${streak}</span><span>Рекорд ${best}</span><span>Неделя ${weekN}/7</span><span>Месяц ${monthN}</span></div>
+      <details class="habit-history"><summary>История и отметки за неделю</summary>
+        <div class="week">${cells}</div>
         <div class="heat-wrap">
           <div class="heat-days"><span>пн</span><span>вт</span><span>ср</span><span>чт</span><span>пт</span><span>сб</span><span>вс</span></div>
           <div class="heat">${heatHtml(checks, { lockToday: isMeditation || isStepHabit })}</div>
         </div>
       </details>
-    </div>`;
-  }).join("") || `<div class="empty">Привычек нет</div>`;
-  el.querySelectorAll(".habit").forEach(box => {
+    </section>`;
+  };
+  const selected = habits.find(h => h.id === SELECTED_HABIT_ID) || habits[0] || null;
+  if (selected) SELECTED_HABIT_ID = selected.id;
+  const list = habits.map(h => {
+    const rankId = gameRankId("habit", h.id, "green");
+    const rank = gameRankMeta(rankId);
+    const today = !!(h.checks || {})[STATE.today];
+    return `<button type="button" class="habit-list-item ${h.id === selected?.id ? "is-selected" : ""}" data-select-habit="${esc(h.id)}"><span class="habit-list-mark rank-${esc(rankId)}" aria-hidden="true"></span><span><b>${esc(h.title)}</b><small>${isExtraHabit(h) ? "Экстра-дейлик · " : ""}${esc(((game()?.skills || []).find(s => s.id === gameSkillId("habit", h.id)) || { title: "Система" }).title)}</small></span><em>${today ? "сделано" : `${Number(rank.xp)} XP`}</em></button>`;
+  }).join("");
+  el.innerHTML = selected ? `<section class="habit-manager" aria-label="Ритуалы героя"><nav class="habit-list" aria-label="Выбрать привычку"><header><h2>Ритуалы героя</h2><p>Выбери один ритуал — действия и настройки откроются справа.</p></header>${list}</nav><div class="habit-inspector">${renderHabitDetail(selected)}</div></section>` : `<div class="empty">Привычек нет</div>`;
+  el.querySelectorAll("[data-select-habit]").forEach(button => button.addEventListener("click", () => {
+    SELECTED_HABIT_ID = button.dataset.selectHabit;
+    localStorage.setItem("desk_selected_habit", SELECTED_HABIT_ID);
+    renderHabits();
+  }));
+  el.querySelectorAll(".habit-detail").forEach(box => {
     const id = box.dataset.id;
-    const check = box.querySelector('input[type="checkbox"]');
+    const check = box.querySelector('.habit-complete input[type="checkbox"]');
     if (check) check.addEventListener("change", async (e) => {
       await api(`habits/${id}/check`, { date: STATE.today, on: e.target.checked });
       await load();
@@ -2987,7 +3001,7 @@ function renderHabits() {
       btn.addEventListener("click", async () => {
         const d = btn.dataset.d;
         if (isStepHabit && d === STATE.today) {
-          toast("Воду отмечай тремя стаканами в карточке выше");
+          toast("Воду отмечай шагами в панели ритуала");
           return;
         }
         const h = (STATE.habits || []).find(x => x.id === id);
@@ -3000,7 +3014,7 @@ function renderHabits() {
       cell.addEventListener("click", async () => {
         const d = cell.dataset.d;
         if ((isMeditation || isStepHabit) && d === STATE.today) {
-          toast(isStepHabit ? "Воду отмечай тремя стаканами в карточке выше" : "Для медитации выбери 10 или 30 минут выше");
+          toast(isStepHabit ? "Воду отмечай шагами в панели ритуала" : "Для медитации выбери 10 или 30 минут в панели ритуала");
           return;
         }
         const h = (STATE.habits || []).find(x => x.id === id);
