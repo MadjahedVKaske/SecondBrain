@@ -733,6 +733,9 @@ details.group-done > summary.group-head .group-title {
 .habit-history { margin-top:12px; padding-top:10px; border-top:1px solid rgba(92,129,157,.32); }
 .habit-history > summary { color:#abcce6; font-size:.7rem; cursor:pointer; }
 .habit-history .week { margin-top:10px; }
+/* The embedded Codex browser keeps the ritual list beside a narrow inspector.
+   One full-width setting at this intermediate width scans better than two halves. */
+@media (max-width:1050px) and (min-width:721px) { .habit-manager { grid-template-columns:minmax(180px,.34fr) minmax(0,1fr); }.habit-detail .habit-settings-controls { grid-template-columns:1fr; } }
 @media (max-width:720px) { .habit-manager { grid-template-columns:1fr; gap:11px; }.habit-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.habit-list header { grid-column:1 / -1; }.habit-list-item { min-height:55px; padding:7px; }.habit-list-item em { display:none; }.habit-detail { padding:12px; }.habit-detail-head { display:block; }.habit-detail-rank { display:inline-block; margin-top:8px; }.habit-detail .habit-settings-panel,.habit-detail .habit-settings-controls,.habit-detail .habit-water-settings,.habit-backfill-form { grid-template-columns:1fr; }.habit-detail .habit-water-settings label { grid-column:auto; }.habit-backfill-actions { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .habit-growth { position:relative; margin:0 0 14px; padding:18px; overflow:hidden; border:1px solid #29445a; border-radius:14px; background:#111d28; }
 .habit-growth::before { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 14% 0%,rgba(63,185,80,.13),transparent 36%),radial-gradient(circle at 86% 100%,rgba(88,166,255,.1),transparent 38%); }
