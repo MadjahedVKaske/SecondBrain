@@ -393,6 +393,11 @@ if ($method === 'POST' && preg_match('#^habits/([^/]+)/check$#', $rest, $m)) {
         $v = $raw['on'];
         $on = $v === true || $v === 1 || $v === '1';
     }
+    // Checks describe something already done.  Backfilling is allowed, but a
+    // direct API request must never pre-award XP for a future date.
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || ($on && $date > desk_moscow_date())) {
+        desk_respond(['error' => 'bad_habit_date'], 400);
+    }
     $db = desk_pdo();
     try {
         $variantId = trim((string)($raw['variant_id'] ?? ''));

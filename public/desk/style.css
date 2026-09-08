@@ -650,6 +650,18 @@ details.group-done > summary.group-head .group-title {
 .habit-meditation-choice--done b { color:#8fda9b; font-weight:600; }
 .habit-meditation-choice--done .habit-meditation-reset { border-color:#526170; background:transparent; color:#aab7c4; }
 .habit-meditation-choice--done .habit-meditation-reset:hover { border-color:#c4d1dc; background:#1c2731; color:#fff; }
+.habit-backfill { margin-top:8px; padding:8px 0 0; border-top:1px solid rgba(72,111,139,.32); }
+.habit-backfill > summary { color:#a9cbe5; font-size:.7rem; cursor:pointer; }
+.habit-backfill[open] > summary { margin-bottom:8px; color:#d5ecff; }
+.habit-backfill-form { display:grid; grid-template-columns:minmax(132px,.62fr) minmax(0,1fr); gap:9px; align-items:end; }
+.habit-backfill label,.habit-backfill-actions { display:grid; gap:5px; min-width:0; }
+.habit-backfill label > span,.habit-backfill-actions > span { color:#9cb7cc; font-size:.66rem; font-weight:600; }
+.habit-backfill input { width:100%; min-width:0; height:30px; font:inherit; }
+.habit-backfill-actions { grid-template-columns:auto repeat(2,minmax(0,1fr)); align-items:center; }
+.habit-backfill-actions > span { grid-column:1 / -1; }
+.habit-backfill-actions button { min-width:0; min-height:30px; border:1px solid #3f6f96; border-radius:6px; background:#112438; color:#cce5fb; padding:4px 7px; font:inherit; font-size:.67rem; cursor:pointer; white-space:nowrap; }
+.habit-backfill-actions button:hover { border-color:#8ecbff; background:#17354f; color:#fff; }
+.habit-backfill > small { display:block; margin-top:7px; color:#839daf; font-size:.63rem; line-height:1.35; }
 .habit-extra-badge { margin-left:auto; color:#91c9ff; border:1px solid rgba(145,201,255,.35); border-radius:999px; padding:3px 8px; font-size:11px; font-weight:700; }
 .habit-step-quest { margin:12px 0; border:1px solid rgba(103,183,120,.38); border-radius:12px; padding:11px; background:linear-gradient(135deg,rgba(37,76,56,.22),rgba(16,21,27,.18)); }
 .habit-step-head { display:flex; justify-content:space-between; gap:12px; align-items:baseline; margin-bottom:9px; color:#d6e7db; }
@@ -721,7 +733,7 @@ details.group-done > summary.group-head .group-title {
 .habit-history { margin-top:12px; padding-top:10px; border-top:1px solid rgba(92,129,157,.32); }
 .habit-history > summary { color:#abcce6; font-size:.7rem; cursor:pointer; }
 .habit-history .week { margin-top:10px; }
-@media (max-width:720px) { .habit-manager { grid-template-columns:1fr; gap:11px; }.habit-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.habit-list header { grid-column:1 / -1; }.habit-list-item { min-height:55px; padding:7px; }.habit-list-item em { display:none; }.habit-detail { padding:12px; }.habit-detail-head { display:block; }.habit-detail-rank { display:inline-block; margin-top:8px; }.habit-detail .habit-settings-panel,.habit-detail .habit-settings-controls,.habit-detail .habit-water-settings { grid-template-columns:1fr; }.habit-detail .habit-water-settings label { grid-column:auto; } }
+@media (max-width:720px) { .habit-manager { grid-template-columns:1fr; gap:11px; }.habit-list { grid-template-columns:repeat(2,minmax(0,1fr)); }.habit-list header { grid-column:1 / -1; }.habit-list-item { min-height:55px; padding:7px; }.habit-list-item em { display:none; }.habit-detail { padding:12px; }.habit-detail-head { display:block; }.habit-detail-rank { display:inline-block; margin-top:8px; }.habit-detail .habit-settings-panel,.habit-detail .habit-settings-controls,.habit-detail .habit-water-settings,.habit-backfill-form { grid-template-columns:1fr; }.habit-detail .habit-water-settings label { grid-column:auto; }.habit-backfill-actions { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .habit-growth { position:relative; margin:0 0 14px; padding:18px; overflow:hidden; border:1px solid #29445a; border-radius:14px; background:#111d28; }
 .habit-growth::before { content:""; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 14% 0%,rgba(63,185,80,.13),transparent 36%),radial-gradient(circle at 86% 100%,rgba(88,166,255,.1),transparent 38%); }
 .habit-growth > * { position:relative; }
