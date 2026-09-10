@@ -1988,6 +1988,7 @@ function desk_game_seed(PDO $db): void
         ['habit-daily-exercise', 'Зарядка 5 минут', 'green', 2],
         ['habit-daily-duolingo', 'Duolingo', 'gray', 3],
         [$meditation ?: 'habit-daily-meditation', 'Медитация', 'green', 4],
+        ['habit-daily-work-log', 'Внести работы в конце дня', 'gray', 5],
     ];
     $habitInsert = $db->prepare('INSERT IGNORE INTO desk_habits (id,title,checks,created_at,updated_at) VALUES (?,?,?,?,?)');
     $rankInsert = $db->prepare('INSERT IGNORE INTO game_rank_bindings (object_type,object_id,rank_id,created_at,updated_at) VALUES (?,?,?,?,?)');
@@ -1997,14 +1998,16 @@ function desk_game_seed(PDO $db): void
         $rankInsert->execute(['habit', $id, $rank, $now, $now]);
         $dailyInsert->execute([$id, $position, $now]);
     }
+    // This daily completes the operating loop, so its XP belongs to System.
+    $skillInsert = $db->prepare('INSERT IGNORE INTO game_bindings (object_type,object_id,skill_id,created_at,updated_at) VALUES (?,?,?,?,?)');
+    $skillInsert->execute(['habit', 'habit-daily-work-log', 'system', $now, $now]);
 
-    // Bonus rituals live beside the fixed five dailies.  They never enter
-    // game_daily_habits, therefore they cannot alter the 5/5 bundle bonus.
+    // Bonus rituals live beside the core dailies. They never enter
+    // game_daily_habits, therefore they cannot alter the bundle bonus.
     $extraHabits = [
         ['habit-extra-nap', 'Сон днём 20 минут', 'blue', 'health'],
         ['habit-water-balance', 'Водный баланс', 'green', 'health'],
     ];
-    $skillInsert = $db->prepare('INSERT IGNORE INTO game_bindings (object_type,object_id,skill_id,created_at,updated_at) VALUES (?,?,?,?,?)');
     foreach ($extraHabits as [$id, $title, $rank, $skill]) {
         $habitInsert->execute([$id, $title, '{}', $now, $now]);
         $rankInsert->execute(['habit', $id, $rank, $now, $now]);
@@ -2361,7 +2364,7 @@ function desk_game_after_habit_check(PDO $db, array $habit, string $date, bool $
 function desk_game_refresh_daily_bonus(PDO $db, string $date): void
 {
     $rows = $db->query('SELECT d.habit_id, h.checks, b.rank_id FROM game_daily_habits d JOIN desk_habits h ON h.id = d.habit_id LEFT JOIN game_rank_bindings b ON b.object_type = \'habit\' AND b.object_id = d.habit_id ORDER BY d.position')->fetchAll();
-    if (count($rows) !== 5) {
+    if (!$rows) {
         return;
     }
     $dailyXp = 0;
@@ -2532,7 +2535,8 @@ function desk_game_state(PDO $db, array $store): array
         }
     }
     unset($dailyHabit);
-    $dailyBonus = $dailyDone === 5 ? (int)ceil($dailyBaseXp * 0.25) : 0;
+    $dailyTotal = count($dailyHabits);
+    $dailyBonus = $dailyTotal > 0 && $dailyDone === $dailyTotal ? (int)ceil($dailyBaseXp * 0.25) : 0;
     $bonusSt = $db->prepare("SELECT 1 FROM game_events WHERE event_key = ? LIMIT 1");
     $bonusSt->execute(['daily_all:' . $today . ':v2']);
     $dailyBonusAwarded = (bool)$bonusSt->fetchColumn();
@@ -2553,7 +2557,7 @@ function desk_game_state(PDO $db, array $store): array
         'ranks' => desk_game_ranks(),
         'daily_quests' => $daily,
         'daily_habits' => $dailyHabits,
-        'daily_progress' => ['done' => $dailyDone, 'total' => 5, 'bonus_xp' => $dailyBonus, 'bonus_awarded' => $dailyBonusAwarded],
+        'daily_progress' => ['done' => $dailyDone, 'total' => $dailyTotal, 'bonus_xp' => $dailyBonus, 'bonus_awarded' => $dailyBonusAwarded],
         'today_xp' => $todayXp,
         'pulse' => $pulse,
         'step_habits' => $stepHabits,

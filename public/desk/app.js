@@ -272,7 +272,7 @@ function renderToday() {
     && t.status === "done");
   const habits = STATE.habits || [];
   const dailyHabits = g.daily_habits || [];
-  const dailyProgress = g.daily_progress || { done: 0, total: 5, bonus_xp: 0, bonus_awarded: false };
+  const dailyProgress = g.daily_progress || { done: 0, total: dailyHabits.length, bonus_xp: 0, bonus_awarded: false };
   const extraHabitIds = ["habit-extra-nap", "habit-extra-pushups-20"];
   const extraHabits = extraHabitIds.map(id => habits.find(h => h.id === id)).filter(Boolean);
   const waterHabit = habits.find(h => h.id === "habit-water-balance");
@@ -301,9 +301,9 @@ function renderToday() {
       ? (h.variant_id === "meditation-30" ? "30 мин · готово" : h.variant_id === "meditation-10" ? "10 мин · готово" : "готово")
       : `+${Number(rank.xp)} XP`;
     return `<button type="button" class="game-daily ${done ? "done" : ""}" data-id="${esc(h.habit_id)}" aria-pressed="${done ? "true" : "false"}"><span>${esc(h.title)}</span><small>${detail}</small></button>`;
-  }).join("") || `<div class="sub">Пять дейликов появятся после подключения игрового слоя.</div>`;
+  }).join("") || `<div class="sub">Основные дейлики появятся после подключения игрового слоя.</div>`;
   const waterDone = new Set((waterPlan?.done_steps || []).map(Number));
-  const extraRows = (extraHabits.length || waterHabit) ? `<div class="game-extra-dailies"><div class="game-daily-head">Дополнительно <span>не входит в 5/5</span></div>
+  const extraRows = (extraHabits.length || waterHabit) ? `<div class="game-extra-dailies"><div class="game-daily-head">Дополнительно <span>вне основного набора</span></div>
     ${extraHabits.map(h => { const rankId = gameRankId("habit", h.id, "green"); return `<button type="button" class="game-extra-habit game-extra-habit--${esc(rankId)} ${h.checks?.[STATE.today] ? "done" : ""}" data-id="${esc(h.id)}" aria-pressed="${h.checks?.[STATE.today] ? "true" : "false"}"><span>${esc(h.title)}</span><small>${h.checks?.[STATE.today] ? "готово" : `+${gameRankXp("habit", h.id, "green")} XP`}</small></button>`; }).join("")}
     ${waterHabit && waterPlan ? `<div class="game-extra-water ${waterDone.size >= Number(waterPlan.total) ? "done" : ""}"><div><span>${esc(waterHabit.title)} · ${waterDone.size >= Number(waterPlan.total) ? "готово" : `${waterDone.size}/${Number(waterPlan.total)} стакана`}</span><small>${esc(waterPlan.label)}</small></div><div class="game-extra-water-actions">${Array.from({ length: Number(waterPlan.total) }, (_, index) => { const step=index+1, done=waterDone.has(step); return `<button type="button" data-step="${step}" ${done ? "disabled" : ""}>${done ? "✓" : `${step}. стакан`} · +${Number(waterPlan.step_xp)} XP</button>`; }).join("")}</div></div>` : ""}
   </div>` : "";
@@ -381,15 +381,15 @@ function renderToday() {
   el.innerHTML = `<section class="game-stage" aria-label="Профиль прогресса">
     <div class="game-stage-copy"><span class="game-kicker">Твоя экспедиция</span><h2>Уровень ${Number(profile.level || 1)}</h2><p>Ранг выбирается по внутренней цене квеста. Чек-лист всегда даёт +${Number(rules.checkpoint_xp || 2)} XP за пункт.</p><div class="game-stage-xp"><b>${Number(profile.total_xp || 0)} XP</b><span>до уровня: ${xpToLevel(profile.total_xp)} XP</span></div><div class="game-level-bar"><i style="width:${Number(profile.total_xp || 0) % 100}%"></i></div><small class="game-reward-rules">${esc(rewardRules)}</small></div>
     <div class="game-hero" aria-label="Герой собирается из опыта владений">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span><span class="game-hero-marks" aria-hidden="true">${heroMarks}</span></div>
-    <div class="game-stage-signal"><span>Дейлики</span><strong>${habitsDone}/${dailyTotal || 5}</strong>${dailySetComplete ? `<small>набор · +${Number(dailyProgress.bonus_xp)} XP</small>` : ""}</div>
+    <div class="game-stage-signal"><span>Дейлики</span><strong>${habitsDone}/${dailyTotal}</strong>${dailySetComplete ? `<small>набор · +${Number(dailyProgress.bonus_xp)} XP</small>` : ""}</div>
   </section>
   <div class="game-today-grid">
     <section class="game-focus">
-      <div class="game-heading"><h2>Сегодня</h2><span>${quests.length}/3 квеста · ${habitsDone}/5 дейликов</span></div>
+      <div class="game-heading"><h2>Сегодня</h2><span>${quests.length}/3 квеста · ${habitsDone}/${dailyTotal} дейликов</span></div>
       <div class="game-quests">${questRows}</div>
       ${otherTodayRows ? `<div class="game-other-today"><div class="game-daily-head">Ещё на сегодня <span>${otherTodayTasks.length}</span></div>${otherTodayRows}</div>` : ""}
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
-      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/5</span></div>${dailyRows}${dailySetReward}</div>${extraRows}${pulseRows}${workLog}
+      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/${dailyTotal}</span></div>${dailyRows}${dailySetReward}</div>${extraRows}${pulseRows}${workLog}
     </section>
     <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств по всему накопленному опыту">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
   </div>`;

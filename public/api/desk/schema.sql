@@ -242,8 +242,8 @@ CREATE TABLE IF NOT EXISTS game_rank_bindings (
   PRIMARY KEY (object_type, object_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Exactly these five routines count towards the all-dailies bonus.  Other
--- habits may still earn their own XP, but cannot accidentally change 5/5.
+-- Only routines listed here count towards the all-dailies bonus. Other
+-- habits may still earn their own XP, but cannot accidentally change it.
 CREATE TABLE IF NOT EXISTS game_daily_habits (
   habit_id VARCHAR(64) NOT NULL PRIMARY KEY,
   position INT NOT NULL DEFAULT 0,
