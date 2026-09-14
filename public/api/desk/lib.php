@@ -2308,7 +2308,7 @@ function desk_game_after_task_status(PDO $db, array $task): void
     if ($id === '') {
         return;
     }
-    desk_game_award_once($db, 'task:' . $id . ':done', 'quest_done', 'task', $id, desk_game_rank_xp($db, 'task', $id), desk_game_skill_for($db, 'task', $id));
+    desk_game_award_once($db, 'task:' . $id . ':done', 'quest_done', 'task', $id, desk_game_rank_xp($db, 'task', $id), desk_game_skill_for($db, 'task', $id), desk_moscow_date());
 }
 
 function desk_game_after_checklist_item(PDO $db, string $itemId): void
