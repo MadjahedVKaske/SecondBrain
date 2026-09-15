@@ -219,6 +219,15 @@ function gameRankBadgeFor(objectType, objectId, fallback = "gray") {
   return gameRankBadge(binding?.rank_id || fallback, binding?.xp_override);
 }
 
+function gameWeeklyRankMarkerFor(objectType, objectId, fallback = "gray") {
+  const binding = gameRankBinding(objectType, objectId);
+  const rankId = binding?.rank_id || fallback;
+  const rank = gameRankMeta(rankId);
+  const xp = binding?.xp_override != null ? Number(binding.xp_override) : rankId === "red" ? 0 : Number(rank.xp);
+  const label = `${rank.title} · ${xp ? `+${xp} XP` : "индивидуальная награда"}`;
+  return `<span class="game-weekly-rank game-rank--${esc(rankId)}" title="${esc(label)}" aria-label="${esc(label)}"><b>${xp ? `+${xp}` : "—"}</b><small>XP</small></span>`;
+}
+
 function gameEventLabel(event) {
   const task = taskById(event.source_id);
   const habit = (STATE?.habits || []).find(h => h.id === event.source_id);
@@ -346,7 +355,7 @@ function renderToday() {
     const planned = Number((String(task.notes || "").match(/до\s+(\d+(?:[.,]\d+)?)\s*час/i) || [])[1]?.replace(",", ".") || 0);
     const booked = (STATE.works || []).filter(work => work.task_id === task.id && week.has(work.date)).reduce((sum, work) => sum + Number(work.hours || 0), 0);
     const progress = planned ? Math.min(100, Math.round(booked * 100 / planned)) : 0;
-    return `<button type="button" class="game-weekly-plan" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${booked.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}${planned ? ` / ${planned}` : ""} ч на этой неделе</small><span class="game-weekly-progress" aria-label="Выполнено ${progress}%"><i style="width:${progress}%"></i></span></span>${gameRankBadgeFor("task", task.id)}</button>`;
+    return `<button type="button" class="game-weekly-plan" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${booked.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}${planned ? ` / ${planned}` : ""} ч на этой неделе</small><span class="game-weekly-progress" aria-label="Выполнено ${progress}%"><i style="width:${progress}%"></i></span></span>${gameWeeklyRankMarkerFor("task", task.id)}</button>`;
   }).join("");
   const realmMeta = [
     { id: "clients", title: "Дело", note: "клиенты и результаты", sprite: [10,11,12,17,18,19,20,25,26,27,28,29,33,34,35,36,37,41,42,43,44,45,49,50,51,52,53,57,58,59,60,61] },
