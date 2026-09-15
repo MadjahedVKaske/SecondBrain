@@ -27,6 +27,7 @@ let DESK_MODE = localStorage.getItem("desk_mode") || "light";
 let REALM_MAP_SCENIC = localStorage.getItem("desk_realm_map_scenic") === "1";
 let SELECTED_HABIT_ID = localStorage.getItem("desk_selected_habit") || "";
 const OPEN_QUEST_CHECKLISTS = new Set();
+let OPEN_PULSE_LOG = false;
 
 const AREA_COLOR = {
   работа: "#3d8fd1",
@@ -346,7 +347,7 @@ function renderToday() {
     return rem100 >= 11 && rem100 <= 14 ? "записей" : rem10 === 1 ? "запись" : rem10 >= 2 && rem10 <= 4 ? "записи" : "записей";
   };
   const pulseValue = (key, label, low, high) => `<div class="game-pulse-row"><span>${label}</span><div class="game-pulse-scale" role="group" aria-label="${label}"><small>${low}</small>${[1, 2, 3, 4, 5].map(value => `<button type="button" data-pulse-key="${key}" data-pulse-value="${value}" aria-label="${label}: ${value} из 5" aria-pressed="false"><i aria-hidden="true"></i></button>`).join("")}<small>${high}</small></div></div>`;
-  const pulseLog = pulses.length ? `<details class="game-pulse-log"><summary>Записи дня <span>${pulses.length}</span></summary><div>${pulses.map(entry => { const time = String(entry.created_at || "").match(/(\d{2}:\d{2})/)?.[1] || "сегодня"; const marks = [entry.energy ? `энергия ${Number(entry.energy)}/5` : "", entry.mood ? `настроение ${Number(entry.mood)}/5` : ""].filter(Boolean).join(" · "); return `<article><header><time>${esc(time)}</time><small>${esc(marks || "наблюдение")}</small></header>${entry.note ? `<p>${esc(entry.note)}</p>` : ""}</article>`; }).join("")}</div></details>` : "";
+  const pulseLog = pulses.length ? `<details class="game-pulse-log" ${OPEN_PULSE_LOG ? "open" : ""}><summary>Записи дня <span>${pulses.length}</span></summary><div>${pulses.map(entry => { const time = String(entry.created_at || "").match(/(\d{2}:\d{2})/)?.[1] || "сегодня"; const marks = [entry.energy ? `энергия ${Number(entry.energy)}/5` : "", entry.mood ? `настроение ${Number(entry.mood)}/5` : ""].filter(Boolean).join(" · "); return `<article><header><time>${esc(time)}</time><small>${esc(marks || "наблюдение")}</small></header>${entry.note ? `<p>${esc(entry.note)}</p>` : ""}</article>`; }).join("")}</div></details>` : "";
   const pulseRows = `<section class="game-pulse ${pulses.length ? "done" : ""}" aria-label="Пульс дня"><div class="game-pulse-head"><div><h3>Пульс дня</h3><small>необязательный журнал · +8 XP за первую запись</small></div><span>${pulses.length ? `${pulses.length} ${pulseCountLabel(pulses.length)}` : "привал"}</span></div><p>${pulses.length ? "Можно добавить ещё одну запись — прежние останутся в журнале." : "Остановиться на минуту и заметить своё состояние. Ничего обязательного."}</p>${pulseLog}<details class="game-pulse-form"><summary>${pulses.length ? "Добавить запись" : "Записать состояние"}</summary><div class="game-pulse-fields">${pulseValue("energy", "Энергия", "мало", "много")}${pulseValue("mood", "Настроение", "тяжело", "легко")}<label class="game-pulse-note"><span>Наблюдение дня</span><textarea maxlength="5000" placeholder="Что произошло, как ты себя чувствуешь, что помогло или забрало силы?"></textarea><small>До 5 000 символов</small></label><button type="button" class="game-pulse-save">${pulses.length ? "Добавить в журнал" : "Зафиксировать привал · +8 XP"}</button></div></details></section>`;
   const recent = (g.events || []).slice(0, 3).map(e => `${esc(gameEventLabel(e))} ${Number(e.xp || 0) > 0 ? "+" : ""}${Number(e.xp || 0)} XP`).join(" · ") || "журнал пока пуст";
   const week = new Set(weekKeys(STATE.today));
@@ -493,12 +494,27 @@ function renderToday() {
     if (key === "mood") pulseMood = value;
     el.querySelectorAll(`button[data-pulse-key="${key}"]`).forEach(option => option.setAttribute("aria-pressed", String(Number(option.dataset.pulseValue) === value)));
   });
-  el.querySelector(".game-pulse-save")?.addEventListener("click", async () => {
+  el.querySelector(".game-pulse-log")?.addEventListener("toggle", event => {
+    OPEN_PULSE_LOG = event.currentTarget.open;
+  });
+  el.querySelector(".game-pulse-save")?.addEventListener("click", async event => {
+    const save = event.currentTarget;
     const note = el.querySelector(".game-pulse-note textarea")?.value || "";
-    const out = await api("game/pulse", { date: STATE.today, energy: pulseEnergy, mood: pulseMood, note });
-    if (!out || !out.ok) { toast("Пульс не сохранился"); return; }
-    toast(pulses.length ? "Запись добавлена в журнал" : "Пульс сохранён · +8 XP");
-    await load();
+    save.disabled = true;
+    try {
+      const out = await api("game/pulse", { date: STATE.today, energy: pulseEnergy, mood: pulseMood, note });
+      if (!out || !out.ok) {
+        toast(out?.error === "pulse_empty" ? "Добавь наблюдение или отметь состояние" : "Пульс не сохранился");
+        return;
+      }
+      OPEN_PULSE_LOG = true;
+      toast(pulses.length ? "Запись добавлена в журнал" : "Пульс сохранён · +8 XP");
+      await load();
+    } catch (_) {
+      toast("Пульс не сохранился — попробуй ещё раз");
+    } finally {
+      if (save.isConnected) save.disabled = false;
+    }
   });
 }
 
