@@ -226,7 +226,7 @@ function gameWeeklyRankMarkerFor(objectType, objectId, fallback = "gray") {
   const rank = gameRankMeta(rankId);
   const xp = binding?.xp_override != null ? Number(binding.xp_override) : rankId === "red" ? 0 : Number(rank.xp);
   const label = `${rank.title} · ${xp ? `+${xp} XP` : "индивидуальная награда"}`;
-  return `<span class="game-weekly-rank game-rank--${esc(rankId)}" title="${esc(label)}" aria-label="${esc(label)}"><b>${xp ? `+${xp}` : "—"}</b><small>XP</small></span>`;
+  return `<span class="game-weekly-rank game-rank--${esc(rankId)}" title="${esc(label)}" aria-label="${esc(label)}"><b>${xp ? `+${xp}` : "—"}</b></span>`;
 }
 
 function gameEventLabel(event) {
