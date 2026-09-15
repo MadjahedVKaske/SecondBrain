@@ -302,6 +302,29 @@ function renderToday() {
       : `+${Number(rank.xp)} XP`;
     return `<button type="button" class="game-daily ${done ? "done" : ""}" data-id="${esc(h.habit_id)}" aria-pressed="${done ? "true" : "false"}"><span>${esc(h.title)}</span><small>${detail}</small></button>`;
   }).join("") || `<div class="sub">Основные дейлики появятся после подключения игрового слоя.</div>`;
+  const longQuestMeta = task => {
+    const match = String(task.notes || "").match(/^⌁\s*(\d{2})\.(\d{2})–(\d{2})\.(\d{2})\s*·\s*([^\n]+)/m);
+    if (!match) return null;
+    const [, startDay, startMonth, endDay, endMonth, cadence] = match;
+    const year = Number(String(STATE.today).slice(0, 4));
+    const iso = (y, month, day) => `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const start = iso(year, Number(startMonth), Number(startDay));
+    const endYear = Number(endMonth) < Number(startMonth) ? year + 1 : year;
+    const end = iso(endYear, Number(endMonth), Number(endDay));
+    if (STATE.today < start || STATE.today > end) return null;
+    const todayPrefix = `${String(STATE.today).slice(8, 10)}.${String(STATE.today).slice(5, 7)}`;
+    const steps = (task.checklists || []).flatMap(list => list.items || []);
+    const todaySteps = steps.filter(item => String(item.text || "").startsWith(todayPrefix));
+    return {
+      cadence: cadence.trim(),
+      period: `${startDay}.${startMonth}–${endDay}.${endMonth}`,
+      total: steps.length,
+      done: steps.filter(item => item.done).length,
+      todayTotal: todaySteps.length,
+      todayDone: todaySteps.filter(item => item.done).length,
+    };
+  };
+  const longQuests = (STATE.tasks || []).map(task => ({ task, meta: longQuestMeta(task) })).filter(row => row.meta && row.task.status !== "done");
   const waterDone = new Set((waterPlan?.done_steps || []).map(Number));
   const extraRows = (extraHabits.length || waterHabit) ? `<div class="game-extra-dailies"><div class="game-daily-head">Дополнительно <span>вне основного набора</span></div>
     ${extraHabits.map(h => { const rankId = gameRankId("habit", h.id, "green"); return `<button type="button" class="game-extra-habit game-extra-habit--${esc(rankId)} ${h.checks?.[STATE.today] ? "done" : ""}" data-id="${esc(h.id)}" aria-pressed="${h.checks?.[STATE.today] ? "true" : "false"}"><span>${esc(h.title)}</span><small>${h.checks?.[STATE.today] ? "готово" : `+${gameRankXp("habit", h.id, "green")} XP`}</small></button>`; }).join("")}
@@ -327,6 +350,12 @@ function renderToday() {
     { id: "system", title: "Система", note: "процессы и опоры", sprite: [10,11,12,18,19,20,25,26,27,28,29,34,35,36,37,38,42,43,44,45,46,50,51,52,53,58,59,60] },
   ];
   const realmFor = id => realmMeta.find(r => r.id === id) || realmMeta[1];
+  const longQuestRows = longQuests.map(({ task, meta }) => {
+    const realm = realmFor(gameSkillId("task", task.id));
+    const progress = meta.total ? Math.round(meta.done * 100 / meta.total) : 0;
+    return `<button type="button" class="game-long-quest game-long-quest--${realm.id}" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${esc(meta.period)} · ${esc(meta.cadence)} · сегодня ${meta.todayDone}/${meta.todayTotal}</small><span class="bar" aria-label="Прогресс ${progress}%"><i style="width:${progress}%"></i></span></span><em>${meta.done}/${meta.total}</em></button>`;
+  }).join("");
+  const longQuestSection = longQuestRows ? `<section class="game-long-quests" aria-label="Длительные квесты"><div class="game-daily-head">Длительные квесты <span>${longQuests.length}</span></div>${longQuestRows}</section>` : "";
   const realmRows = realmMeta.map(realm => {
     const skill = (g.skills || []).find(s => s.id === realm.id) || { xp: 0 };
     const xp = Number(skill.xp || 0);
@@ -389,13 +418,14 @@ function renderToday() {
       <div class="game-quests">${questRows}</div>
       ${otherTodayRows ? `<div class="game-other-today"><div class="game-daily-head">Ещё на сегодня <span>${otherTodayTasks.length}</span></div>${otherTodayRows}</div>` : ""}
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
-      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/${dailyTotal}</span></div>${dailyRows}${dailySetReward}</div>${extraRows}${pulseRows}${workLog}
+      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/${dailyTotal}</span></div>${dailyRows}${dailySetReward}</div>${longQuestSection}${extraRows}${pulseRows}${workLog}
     </section>
     <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств по всему накопленному опыту">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
   </div>`;
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => openTask(btn.closest(".game-quest").dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-done-task").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
+  el.querySelectorAll(".game-long-quest").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-work-row").forEach(btn => btn.onclick = () => btn.dataset.id && openTask(btn.dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-weekly-plan").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-quest-remove").forEach(btn => btn.onclick = async () => {

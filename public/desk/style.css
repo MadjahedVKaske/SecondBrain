@@ -838,6 +838,12 @@ details.group-done > summary.group-head .group-title {
 .game-quest-check.done > span { border-color:var(--personal); background:var(--personal); }
 .game-quest-check.done b { color:var(--muted); font-weight:500; text-decoration:line-through; }
 .game-dailies { display:grid; gap:5px; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
+.game-long-quests { display:grid; gap:5px; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
+.game-long-quest { position:relative; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; width:100%; padding:8px 0 8px 9px; border:0; border-bottom:1px solid rgba(93,129,158,.34); background:transparent; color:var(--text); font:inherit; text-align:left; cursor:pointer; }
+.game-long-quest::before { content:""; position:absolute; top:11px; bottom:11px; left:0; width:3px; background:#58a6ff; }
+.game-long-quest--health::before { background:#3fb950; }.game-long-quest--order::before { background:#ffd166; }.game-long-quest--system::before { background:#a371f7; }
+.game-long-quest:last-child { border-bottom:0; }
+.game-long-quest > span { display:grid; gap:3px; min-width:0; }.game-long-quest b { overflow:hidden; color:#e8f2fa; font-size:.79rem; text-overflow:ellipsis; white-space:nowrap; }.game-long-quest small { color:#91aabd; font-size:.65rem; }.game-long-quest em { align-self:center; color:#aac6da; font-size:.67rem; font-style:normal; font-variant-numeric:tabular-nums; white-space:nowrap; }.game-long-quest .bar { height:3px; margin-top:2px; background:#253949; }.game-long-quest .bar i { display:block; height:100%; background:#68b7ff; }.game-long-quest--health .bar i { background:#63c778; }.game-long-quest:hover b { color:#fff; }.game-long-quest:hover .bar { background:#345269; }
 .game-other-today { display:grid; gap:5px; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
 .game-other-task { display:flex; justify-content:space-between; gap:8px; width:100%; border:0; border-radius:7px; background:rgba(88,166,255,.05); color:var(--text); padding:7px 8px; text-align:left; cursor:pointer; font-size:.8rem; }
 .game-other-task:hover { background:rgba(88,166,255,.13); }
