@@ -330,10 +330,15 @@ function renderToday() {
     ${extraHabits.map(h => { const rankId = gameRankId("habit", h.id, "green"); return `<button type="button" class="game-extra-habit game-extra-habit--${esc(rankId)} ${h.checks?.[STATE.today] ? "done" : ""}" data-id="${esc(h.id)}" aria-pressed="${h.checks?.[STATE.today] ? "true" : "false"}"><span>${esc(h.title)}</span><small>${h.checks?.[STATE.today] ? "готово" : `+${gameRankXp("habit", h.id, "green")} XP`}</small></button>`; }).join("")}
     ${waterHabit && waterPlan ? `<div class="game-extra-water ${waterDone.size >= Number(waterPlan.total) ? "done" : ""}"><div><span>${esc(waterHabit.title)} · ${waterDone.size >= Number(waterPlan.total) ? "готово" : `${waterDone.size}/${Number(waterPlan.total)} стакана`}</span><small>${esc(waterPlan.label)}</small></div><div class="game-extra-water-actions">${Array.from({ length: Number(waterPlan.total) }, (_, index) => { const step=index+1, done=waterDone.has(step); return `<button type="button" data-step="${step}" ${done ? "disabled" : ""}>${done ? "✓" : `${step}. стакан`} · +${Number(waterPlan.step_xp)} XP</button>`; }).join("")}</div></div>` : ""}
   </div>` : "";
-  const pulse = g.pulse || null;
-  const pulseValue = (key, label, low, high) => `<div class="game-pulse-row"><span>${label}</span><div class="game-pulse-scale" role="group" aria-label="${label}"><small>${low}</small>${[1, 2, 3, 4, 5].map(value => `<button type="button" data-pulse-key="${key}" data-pulse-value="${value}" aria-label="${label}: ${value} из 5" aria-pressed="${Number(pulse?.[key] || 0) === value ? "true" : "false"}"><i aria-hidden="true"></i></button>`).join("")}<small>${high}</small></div></div>`;
-  const pulseSummary = pulse ? `энергия ${Number(pulse.energy)}/5 · настроение ${Number(pulse.mood)}/5` : "без серии и обязательств";
-  const pulseRows = `<section class="game-pulse ${pulse ? "done" : ""}" aria-label="Пульс дня"><div class="game-pulse-head"><div><h3>Пульс дня</h3><small>необязательная отметка · +8 XP один раз</small></div><span>${pulse ? "сохранён" : "привал"}</span></div><p>${pulse ? esc(pulseSummary) : "Остановиться на минуту и заметить своё состояние. Дейлики от этого не зависят."}</p><details class="game-pulse-form" ${pulse ? "" : ""}><summary>${pulse ? "Посмотреть и изменить" : "Записать состояние"}</summary><div class="game-pulse-fields">${pulseValue("energy", "Энергия", "мало", "много")}${pulseValue("mood", "Настроение", "тяжело", "легко")}<label class="game-pulse-note"><span>Одной фразой, если хочется</span><textarea maxlength="600" placeholder="Что сегодня помогло или отняло силы?">${esc(pulse?.note || "")}</textarea></label><button type="button" class="game-pulse-save">${pulse ? "Сохранить изменения" : "Зафиксировать привал · +8 XP"}</button></div></details></section>`;
+  const pulses = Array.isArray(g.pulses) ? g.pulses : (g.pulse ? [g.pulse] : []);
+  const pulseCountLabel = count => {
+    const rem100 = count % 100;
+    const rem10 = count % 10;
+    return rem100 >= 11 && rem100 <= 14 ? "записей" : rem10 === 1 ? "запись" : rem10 >= 2 && rem10 <= 4 ? "записи" : "записей";
+  };
+  const pulseValue = (key, label, low, high) => `<div class="game-pulse-row"><span>${label}</span><div class="game-pulse-scale" role="group" aria-label="${label}"><small>${low}</small>${[1, 2, 3, 4, 5].map(value => `<button type="button" data-pulse-key="${key}" data-pulse-value="${value}" aria-label="${label}: ${value} из 5" aria-pressed="false"><i aria-hidden="true"></i></button>`).join("")}<small>${high}</small></div></div>`;
+  const pulseLog = pulses.length ? `<details class="game-pulse-log"><summary>Записи дня <span>${pulses.length}</span></summary><div>${pulses.map(entry => { const time = String(entry.created_at || "").match(/(\d{2}:\d{2})/)?.[1] || "сегодня"; const marks = [entry.energy ? `энергия ${Number(entry.energy)}/5` : "", entry.mood ? `настроение ${Number(entry.mood)}/5` : ""].filter(Boolean).join(" · "); return `<article><header><time>${esc(time)}</time><small>${esc(marks || "наблюдение")}</small></header>${entry.note ? `<p>${esc(entry.note)}</p>` : ""}</article>`; }).join("")}</div></details>` : "";
+  const pulseRows = `<section class="game-pulse ${pulses.length ? "done" : ""}" aria-label="Пульс дня"><div class="game-pulse-head"><div><h3>Пульс дня</h3><small>необязательный журнал · +8 XP за первую запись</small></div><span>${pulses.length ? `${pulses.length} ${pulseCountLabel(pulses.length)}` : "привал"}</span></div><p>${pulses.length ? "Можно добавить ещё одну запись — прежние останутся в журнале." : "Остановиться на минуту и заметить своё состояние. Ничего обязательного."}</p>${pulseLog}<details class="game-pulse-form"><summary>${pulses.length ? "Добавить запись" : "Записать состояние"}</summary><div class="game-pulse-fields">${pulseValue("energy", "Энергия", "мало", "много")}${pulseValue("mood", "Настроение", "тяжело", "легко")}<label class="game-pulse-note"><span>Наблюдение дня</span><textarea maxlength="5000" placeholder="Что произошло, как ты себя чувствуешь, что помогло или забрало силы?"></textarea><small>До 5 000 символов</small></label><button type="button" class="game-pulse-save">${pulses.length ? "Добавить в журнал" : "Зафиксировать привал · +8 XP"}</button></div></details></section>`;
   const recent = (g.events || []).slice(0, 3).map(e => `${esc(gameEventLabel(e))} ${Number(e.xp || 0) > 0 ? "+" : ""}${Number(e.xp || 0)} XP`).join(" · ") || "журнал пока пуст";
   const week = new Set(weekKeys(STATE.today));
   const weeklyPlans = (STATE.tasks || []).filter(task => /недельная цель/i.test(String(task.notes || "")) && task.status !== "done");
@@ -470,8 +475,8 @@ function renderToday() {
     if (!out || !out.ok) { toast("Стакан не сохранился"); return; }
     await load();
   });
-  let pulseEnergy = pulse?.energy ? Number(pulse.energy) : null;
-  let pulseMood = pulse?.mood ? Number(pulse.mood) : null;
+  let pulseEnergy = null;
+  let pulseMood = null;
   el.querySelectorAll("button[data-pulse-key]").forEach(btn => btn.onclick = () => {
     const key = btn.dataset.pulseKey;
     const value = Number(btn.dataset.pulseValue);
@@ -483,7 +488,7 @@ function renderToday() {
     const note = el.querySelector(".game-pulse-note textarea")?.value || "";
     const out = await api("game/pulse", { date: STATE.today, energy: pulseEnergy, mood: pulseMood, note });
     if (!out || !out.ok) { toast("Пульс не сохранился"); return; }
-    toast(pulse ? "Пульс обновлён" : "Пульс сохранён · +8 XP");
+    toast(pulses.length ? "Запись добавлена в журнал" : "Пульс сохранён · +8 XP");
     await load();
   });
 }

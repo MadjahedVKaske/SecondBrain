@@ -220,6 +220,19 @@ CREATE TABLE IF NOT EXISTS game_daily_pulses (
   updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- A day may hold several voluntary observations. The former one-row table
+-- remains as a legacy source and is copied into this journal on startup.
+CREATE TABLE IF NOT EXISTS game_pulse_entries (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  pulse_date DATE NOT NULL,
+  energy TINYINT NULL,
+  mood TINYINT NULL,
+  note TEXT NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  KEY idx_game_pulse_entries_date (pulse_date, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS game_daily_quests (
   quest_date DATE NOT NULL,
   task_id VARCHAR(36) NOT NULL,

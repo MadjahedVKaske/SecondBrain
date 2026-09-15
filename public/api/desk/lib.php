@@ -1955,6 +1955,9 @@ function desk_habit_check(string $id, string $date, bool $on): ?array
 function desk_game_seed(PDO $db): void
 {
     $now = desk_sql_now();
+    // Preserve the original once-a-day pulse as the first journal entry.
+    // The deterministic id makes this migration safe on every local startup.
+    $db->exec("INSERT IGNORE INTO game_pulse_entries (id,pulse_date,energy,mood,note,created_at,updated_at) SELECT CONCAT('legacy-', DATE_FORMAT(pulse_date, '%Y%m%d')), pulse_date, energy, mood, note, created_at, updated_at FROM game_daily_pulses");
     $db->prepare("INSERT IGNORE INTO game_profile (id,avatar_key,created_at,updated_at) VALUES ('default','pixel-spark',?,?)")
         ->execute([$now, $now]);
     // Four territories are enough to be mentally usable. Growth is a branch
@@ -2090,18 +2093,24 @@ function desk_game_save_pulse(PDO $db, string $date, ?int $energy, ?int $mood, s
     foreach ([$energy, $mood] as $value) {
         if ($value !== null && ($value < 1 || $value > 5)) throw new InvalidArgumentException('bad_pulse_value');
     }
-    $note = substr(trim($note), 0, 600);
+    $note = mb_substr(trim($note), 0, 5000, 'UTF-8');
     if ($energy === null && $mood === null && $note === '') throw new InvalidArgumentException('pulse_empty');
     return desk_game_transaction($db, static function () use ($db, $date, $energy, $mood, $note): array {
         $now = desk_sql_now();
-        $st = $db->prepare('INSERT INTO game_daily_pulses (pulse_date,energy,mood,note,created_at,updated_at) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE energy=VALUES(energy), mood=VALUES(mood), note=VALUES(note), updated_at=VALUES(updated_at)');
-        $st->execute([$date, $energy, $mood, $note, $now, $now]);
+        $entry = [
+            'id' => desk_uuid(),
+            'pulse_date' => $date,
+            'energy' => $energy,
+            'mood' => $mood,
+            'note' => $note,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+        $st = $db->prepare('INSERT INTO game_pulse_entries (id,pulse_date,energy,mood,note,created_at,updated_at) VALUES (?,?,?,?,?,?,?)');
+        $st->execute([$entry['id'], $entry['pulse_date'], $entry['energy'], $entry['mood'], $entry['note'], $entry['created_at'], $entry['updated_at']]);
         desk_game_award_once($db, 'pulse:' . $date . ':done', 'pulse_done', 'pulse', $date, 8, 'system', $date);
-        $row = $db->prepare('SELECT pulse_date,energy,mood,note FROM game_daily_pulses WHERE pulse_date = ?');
-        $row->execute([$date]);
-        $pulse = $row->fetch() ?: [];
-        $pulse['awarded'] = true;
-        return $pulse;
+        $entry['awarded'] = true;
+        return $entry;
     });
 }
 
@@ -2543,10 +2552,11 @@ function desk_game_state(PDO $db, array $store): array
     $todayXpSt = $db->prepare('SELECT COALESCE(SUM(xp), 0) FROM game_events WHERE reward_date = ?');
     $todayXpSt->execute([$today]);
     $todayXp = (int)$todayXpSt->fetchColumn();
-    $pulseSt = $db->prepare('SELECT pulse_date,energy,mood,note FROM game_daily_pulses WHERE pulse_date = ?');
+    $pulseSt = $db->prepare('SELECT id,pulse_date,energy,mood,note,created_at FROM game_pulse_entries WHERE pulse_date = ? ORDER BY created_at DESC');
     $pulseSt->execute([$today]);
-    $pulse = $pulseSt->fetch() ?: null;
-    if ($pulse) $pulse['awarded'] = true;
+    $pulses = $pulseSt->fetchAll();
+    foreach ($pulses as &$pulse) $pulse['awarded'] = true;
+    unset($pulse);
     $stepHabits = desk_game_habit_steps_state($db, $today);
     $events = $db->query('SELECT event_type,source_type,source_id,xp,skill_id,reward_date,created_at FROM game_events ORDER BY created_at DESC LIMIT 8')->fetchAll();
     return [
@@ -2559,7 +2569,10 @@ function desk_game_state(PDO $db, array $store): array
         'daily_habits' => $dailyHabits,
         'daily_progress' => ['done' => $dailyDone, 'total' => $dailyTotal, 'bonus_xp' => $dailyBonus, 'bonus_awarded' => $dailyBonusAwarded],
         'today_xp' => $todayXp,
-        'pulse' => $pulse,
+        // `pulse` remains for older clients; the current Desk renders the
+        // complete journal from `pulses`.
+        'pulse' => $pulses[0] ?? null,
+        'pulses' => $pulses,
         'step_habits' => $stepHabits,
         'events' => $events,
         'rules' => ['checkpoint_xp' => 2, 'daily_bonus_percent' => 25],
