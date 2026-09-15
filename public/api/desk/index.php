@@ -209,8 +209,8 @@ if ($method === 'POST' && ($rest === 'game/pulse' || $rest === 'game/pulse/')) {
         $pulse = desk_game_save_pulse(
             $db,
             (string)($raw['date'] ?? desk_moscow_date()),
-            array_key_exists('energy', $raw) ? (int)$raw['energy'] : null,
-            array_key_exists('mood', $raw) ? (int)$raw['mood'] : null,
+            array_key_exists('energy', $raw) && $raw['energy'] !== null && $raw['energy'] !== '' ? (int)$raw['energy'] : null,
+            array_key_exists('mood', $raw) && $raw['mood'] !== null && $raw['mood'] !== '' ? (int)$raw['mood'] : null,
             (string)($raw['note'] ?? '')
         );
     } catch (InvalidArgumentException $e) {
