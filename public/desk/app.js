@@ -26,6 +26,7 @@ let DIGEST_MODE = localStorage.getItem("desk_digest_mode") || "morning";
 let DESK_MODE = localStorage.getItem("desk_mode") || "light";
 let REALM_MAP_SCENIC = localStorage.getItem("desk_realm_map_scenic") === "1";
 let SELECTED_HABIT_ID = localStorage.getItem("desk_selected_habit") || "";
+let DRAWER_WIDE = localStorage.getItem("desk_drawer_wide") === "1";
 const OPEN_QUEST_CHECKLISTS = new Set();
 let OPEN_PULSE_LOG = false;
 
@@ -1347,9 +1348,17 @@ function closeDrawer() {
   document.body.classList.remove("drawer-on");
 }
 
-function showDrawer() {
+function applyDrawerWidth(allowWide) {
+  const el = document.getElementById("drawer");
+  const wide = Boolean(allowWide && DRAWER_WIDE);
+  document.body.classList.toggle("drawer-wide", wide);
+  if (el) el.classList.toggle("drawer-wide", wide);
+}
+
+function showDrawer(allowWide) {
   const el = document.getElementById("drawer");
   if (el) el.hidden = false;
+  applyDrawerWidth(allowWide);
   document.body.classList.add("drawer-on");
 }
 
@@ -1602,6 +1611,7 @@ function openTask(id, opts) {
       <div class="td-header">
         <div class="td-title-row">
           <input id="d-title" class="td-title" type="text" value="${esc(t.title)}"/>
+          <button type="button" class="ghost d-width-toggle" title="${DRAWER_WIDE ? "Обычная ширина панели" : "Расширить панель"}" aria-label="${DRAWER_WIDE ? "Обычная ширина панели" : "Расширить панель"}" aria-pressed="${DRAWER_WIDE ? "true" : "false"}">${DRAWER_WIDE ? "Узко" : "Шире"}</button>
           <button type="button" class="ghost d-close" title="Скрыть" aria-label="Закрыть">×</button>
         </div>
         <select id="d-area" class="td-area-pill ${areaCssName(area)}">
@@ -1627,8 +1637,8 @@ function openTask(id, opts) {
         <button type="button" class="ghost" id="d-dir-add">+ направление</button>
       </div>
 
-      <div class="game-task-controls">
-        <div>
+      <div class="game-task-controls task-game-controls">
+        <div class="task-game-progress">
           <span class="sec-label">${quest.isQuest ? "Квест" : "Прогресс"}</span>
           <span class="sub">${quest.isQuest ? `${quest.done}/${quest.total} шагов` : "Добавь шаги или чек-лист, чтобы превратить задачу в квест."}</span>
         </div>
@@ -1715,12 +1725,20 @@ function openTask(id, opts) {
       </details>
     </div>`;
 
-  showDrawer();
+  showDrawer(true);
   drawerTaskId = id;
   bindAutogrow(document.getElementById("drawer"));
   if (opts.sections) restoreDrawerSections(opts.sections);
 
   document.querySelectorAll("#drawer .d-close").forEach(btn => { btn.onclick = closeDrawer; });
+  const widthToggle = document.querySelector("#drawer .d-width-toggle");
+  if (widthToggle) {
+    widthToggle.onclick = () => {
+      DRAWER_WIDE = !DRAWER_WIDE;
+      localStorage.setItem("desk_drawer_wide", DRAWER_WIDE ? "1" : "0");
+      openTask(id, { sections: saveDrawerSections() });
+    };
+  }
   const backBtn = document.querySelector("#drawer .d-back");
   if (backBtn) {
     backBtn.onclick = () => {
