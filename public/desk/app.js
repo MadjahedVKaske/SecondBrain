@@ -318,6 +318,7 @@ function renderToday() {
   const dailyProgress = g.daily_progress || { done: 0, total: dailyHabits.length, bonus_xp: 0, bonus_awarded: false };
   const extraHabitIds = ["habit-extra-nap", "habit-extra-pushups-20"];
   const extraHabits = extraHabitIds.map(id => habits.find(h => h.id === id)).filter(Boolean);
+  const pendingFirst = (items, isDone) => [...items].sort((a, b) => Number(isDone(a)) - Number(isDone(b)));
   const waterHabit = habits.find(h => h.id === "habit-water-balance");
   const waterPlan = (g.step_habits || {})["habit-water-balance"] || null;
   const habitsDone = Number(dailyProgress.done || 0);
@@ -330,7 +331,7 @@ function renderToday() {
   const dailySetReward = dailySetComplete
     ? `<div class="game-daily-bonus done">Набор ритуалов завершён · +${Number(dailyProgress.bonus_xp)} XP</div>`
     : "";
-  const dailyRows = dailyHabits.map(h => {
+  const dailyRows = pendingFirst(dailyHabits, h => h.done).map(h => {
     const done = !!h.done;
     const isMeditation = h.id === "a81ac165-c481-4bdf-9686-6d170941a559" || h.title === "Медитация";
     const rank = gameRankMeta(h.rank_id);
@@ -370,7 +371,7 @@ function renderToday() {
   const longQuests = (STATE.tasks || []).map(task => ({ task, meta: longQuestMeta(task) })).filter(row => row.meta && row.task.status !== "done");
   const waterDone = new Set((waterPlan?.done_steps || []).map(Number));
   const extraContent = (extraHabits.length || waterHabit) ? `<div class="game-extra-dailies">
-    ${extraHabits.map(h => { const rankId = gameRankId("habit", h.id, "green"); return `<button type="button" class="game-extra-habit game-extra-habit--${esc(rankId)} ${h.checks?.[STATE.today] ? "done" : ""}" data-id="${esc(h.id)}" aria-pressed="${h.checks?.[STATE.today] ? "true" : "false"}"><span>${esc(h.title)}</span><small>${h.checks?.[STATE.today] ? "готово" : `+${gameRankXp("habit", h.id, "green")} XP`}</small></button>`; }).join("")}
+    ${pendingFirst(extraHabits, h => h.checks?.[STATE.today]).map(h => { const rankId = gameRankId("habit", h.id, "green"); return `<button type="button" class="game-extra-habit game-extra-habit--${esc(rankId)} ${h.checks?.[STATE.today] ? "done" : ""}" data-id="${esc(h.id)}" aria-pressed="${h.checks?.[STATE.today] ? "true" : "false"}"><span>${esc(h.title)}</span><small>${h.checks?.[STATE.today] ? "готово" : `+${gameRankXp("habit", h.id, "green")} XP`}</small></button>`; }).join("")}
     ${waterHabit && waterPlan ? `<div class="game-extra-water ${waterDone.size >= Number(waterPlan.total) ? "done" : ""}"><div><span>${esc(waterHabit.title)} · ${waterDone.size >= Number(waterPlan.total) ? "готово" : `${waterDone.size}/${Number(waterPlan.total)} стакана`}</span><small>${esc(waterPlan.label)}</small></div><div class="game-extra-water-actions">${Array.from({ length: Number(waterPlan.total) }, (_, index) => { const step=index+1, done=waterDone.has(step); return `<button type="button" data-step="${step}" ${done ? "disabled" : ""}>${done ? "✓" : `${step}. стакан`} · +${Number(waterPlan.step_xp)} XP</button>`; }).join("")}</div></div>` : ""}
   </div>` : "";
   const pulses = Array.isArray(g.pulses) ? g.pulses : (g.pulse ? [g.pulse] : []);
