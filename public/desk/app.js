@@ -29,6 +29,24 @@ let SELECTED_HABIT_ID = localStorage.getItem("desk_selected_habit") || "";
 let DRAWER_WIDTH = Number(localStorage.getItem("desk_drawer_width")) || 420;
 const OPEN_QUEST_CHECKLISTS = new Set();
 let OPEN_PULSE_LOG = false;
+const TODAY_SECTION_KEYS = ["realms", "weekly", "long", "extra"];
+let TODAY_SECTION_OPEN = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("desk_today_sections_v1") || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch (_) {
+    return {};
+  }
+})();
+
+function todaySectionIsOpen(key) {
+  return TODAY_SECTION_OPEN[key] === true;
+}
+
+function saveTodaySectionOpen(key, open) {
+  TODAY_SECTION_OPEN[key] = !!open;
+  localStorage.setItem("desk_today_sections_v1", JSON.stringify(TODAY_SECTION_OPEN));
+}
 
 const AREA_COLOR = {
   работа: "#3d8fd1",
@@ -351,7 +369,7 @@ function renderToday() {
   };
   const longQuests = (STATE.tasks || []).map(task => ({ task, meta: longQuestMeta(task) })).filter(row => row.meta && row.task.status !== "done");
   const waterDone = new Set((waterPlan?.done_steps || []).map(Number));
-  const extraRows = (extraHabits.length || waterHabit) ? `<div class="game-extra-dailies"><div class="game-daily-head">Дополнительно <span>вне основного набора</span></div>
+  const extraContent = (extraHabits.length || waterHabit) ? `<div class="game-extra-dailies">
     ${extraHabits.map(h => { const rankId = gameRankId("habit", h.id, "green"); return `<button type="button" class="game-extra-habit game-extra-habit--${esc(rankId)} ${h.checks?.[STATE.today] ? "done" : ""}" data-id="${esc(h.id)}" aria-pressed="${h.checks?.[STATE.today] ? "true" : "false"}"><span>${esc(h.title)}</span><small>${h.checks?.[STATE.today] ? "готово" : `+${gameRankXp("habit", h.id, "green")} XP`}</small></button>`; }).join("")}
     ${waterHabit && waterPlan ? `<div class="game-extra-water ${waterDone.size >= Number(waterPlan.total) ? "done" : ""}"><div><span>${esc(waterHabit.title)} · ${waterDone.size >= Number(waterPlan.total) ? "готово" : `${waterDone.size}/${Number(waterPlan.total)} стакана`}</span><small>${esc(waterPlan.label)}</small></div><div class="game-extra-water-actions">${Array.from({ length: Number(waterPlan.total) }, (_, index) => { const step=index+1, done=waterDone.has(step); return `<button type="button" data-step="${step}" ${done ? "disabled" : ""}>${done ? "✓" : `${step}. стакан`} · +${Number(waterPlan.step_xp)} XP</button>`; }).join("")}</div></div>` : ""}
   </div>` : "";
@@ -364,7 +382,6 @@ function renderToday() {
   const pulseValue = (key, label, low, high) => `<div class="game-pulse-row"><span>${label}</span><div class="game-pulse-scale" role="group" aria-label="${label}"><small>${low}</small>${[1, 2, 3, 4, 5].map(value => `<button type="button" data-pulse-key="${key}" data-pulse-value="${value}" aria-label="${label}: ${value} из 5" aria-pressed="false"><i aria-hidden="true"></i></button>`).join("")}<small>${high}</small></div></div>`;
   const pulseLog = pulses.length ? `<details class="game-pulse-log" ${OPEN_PULSE_LOG ? "open" : ""}><summary>Записи дня <span>${pulses.length}</span></summary><div>${pulses.map(entry => { const time = String(entry.created_at || "").match(/(\d{2}:\d{2})/)?.[1] || "сегодня"; const marks = [entry.energy ? `энергия ${Number(entry.energy)}/5` : "", entry.mood ? `настроение ${Number(entry.mood)}/5` : ""].filter(Boolean).join(" · "); return `<article><header><time>${esc(time)}</time><small>${esc(marks || "наблюдение")}</small></header>${entry.note ? `<p>${esc(entry.note)}</p>` : ""}</article>`; }).join("")}</div></details>` : "";
   const pulseRows = `<section class="game-pulse ${pulses.length ? "done" : ""}" aria-label="Пульс дня"><div class="game-pulse-head"><div><h3>Пульс дня</h3><small>необязательный журнал · +8 XP за первую запись</small></div><span>${pulses.length ? `${pulses.length} ${pulseCountLabel(pulses.length)}` : "привал"}</span></div><p>${pulses.length ? "Можно добавить ещё одну запись — прежние останутся в журнале." : "Остановиться на минуту и заметить своё состояние. Ничего обязательного."}</p>${pulseLog}<details class="game-pulse-form"><summary>${pulses.length ? "Добавить запись" : "Записать состояние"}</summary><div class="game-pulse-fields">${pulseValue("energy", "Энергия", "мало", "много")}${pulseValue("mood", "Настроение", "тяжело", "легко")}<label class="game-pulse-note"><span>Наблюдение дня</span><textarea maxlength="5000" placeholder="Что произошло, как ты себя чувствуешь, что помогло или забрало силы?"></textarea><small>До 5 000 символов</small></label><button type="button" class="game-pulse-save">${pulses.length ? "Добавить в журнал" : "Зафиксировать привал · +8 XP"}</button></div></details></section>`;
-  const recent = (g.events || []).slice(0, 3).map(e => `${esc(gameEventLabel(e))} ${Number(e.xp || 0) > 0 ? "+" : ""}${Number(e.xp || 0)} XP`).join(" · ") || "журнал пока пуст";
   const week = new Set(weekKeys(STATE.today));
   const weeklyPlans = (STATE.tasks || []).filter(task => /недельная цель/i.test(String(task.notes || "")) && task.status !== "done");
   const weeklyRows = weeklyPlans.map(task => {
@@ -385,7 +402,7 @@ function renderToday() {
     const progress = meta.total ? Math.round(meta.done * 100 / meta.total) : 0;
     return `<button type="button" class="game-long-quest game-long-quest--${realm.id}" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${esc(meta.period)} · ${esc(meta.cadence)} · сегодня ${meta.todayDone}/${meta.todayTotal}</small><span class="bar" aria-label="Прогресс ${progress}%"><i style="width:${progress}%"></i></span></span><em>${meta.done}/${meta.total}</em></button>`;
   }).join("");
-  const longQuestSection = longQuestRows ? `<section class="game-long-quests" aria-label="Длительные квесты"><div class="game-daily-head">Длительные квесты <span>${longQuests.length}</span></div>${longQuestRows}</section>` : "";
+  const longQuestContent = longQuestRows ? `<section class="game-long-quests" aria-label="Длительные квесты">${longQuestRows}</section>` : "";
   const realmRows = realmMeta.map(realm => {
     const skill = (g.skills || []).find(s => s.id === realm.id) || { xp: 0 };
     const progress = realmProgress(skill.xp);
@@ -435,13 +452,26 @@ function renderToday() {
     return `<button type="button" class="game-work-row" data-id="${esc(work.task_id || "")}"><span>${esc(task?.title || "Работа без задачи")}${work.note ? `<small>${esc(work.note)}</small>` : ""}</span><b>${Number(work.hours || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ч</b></button>`;
   }).join("");
   const workLog = `<details class="game-work-log"><summary><span>Учёт работ</span><b>${worksToday.length ? `${hoursToday.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ч · ${worksToday.length}` : "пока пусто"}</b></summary>${worksToday.length ? `<div class="game-work-list">${workRows}</div>` : `<p>Здесь появятся часы, зафиксированные сегодня в задачах.</p>`}</details>`;
+  const todayCollapse = (key, title, meta, content) => `<details class="game-today-collapse" id="game-today-${key}" data-today-section="${key}" ${todaySectionIsOpen(key) ? "open" : ""}><summary><span>${title}</span><small>${meta}</small></summary><div class="game-today-collapse-body">${content}</div></details>`;
+  const realmSection = todayCollapse("realms", "Королевства", `+${Number(g.today_xp || 0)} XP сегодня`, `<div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств по всему накопленному опыту">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>`);
+  const weeklySection = weeklyRows ? todayCollapse("weekly", "Недельные ориентиры", `${weeklyPlans.length} в плане`, `<div class="game-weekly-plans">${weeklyRows}</div>`) : "";
+  const longQuestSection = longQuestContent ? todayCollapse("long", "Длительные квесты", `${longQuests.length} активных`, longQuestContent) : "";
+  const extraRows = extraContent ? todayCollapse("extra", "Дополнительно", "вне основного набора", extraContent) : "";
+  const todaySections = TODAY_SECTION_KEYS.filter(key => ({
+    realms: true,
+    weekly: Boolean(weeklyRows),
+    long: Boolean(longQuestContent),
+    extra: Boolean(extraContent),
+  })[key]);
+  const allTodaySectionsOpen = todaySections.every(todaySectionIsOpen);
+  const todaySectionControl = todaySections.length ? `<div class="game-today-controls"><button type="button" class="game-collapse-all" aria-controls="${todaySections.map(key => `game-today-${key}`).join(" ")}">${allTodaySectionsOpen ? "Свернуть всё" : "Развернуть всё"}</button></div>` : "";
   const heroPixels = [9,10,11,12,13,14,17,18,19,20,21,22,25,26,27,28,29,30,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71];
   el.innerHTML = `<section class="game-stage" aria-label="Профиль прогресса">
     <div class="game-stage-copy"><span class="game-kicker">Твоя экспедиция</span><h2>Уровень ${Number(profile.level || 1)}</h2><p>Ранг выбирается по внутренней цене квеста. Чек-лист всегда даёт +${Number(rules.checkpoint_xp || 2)} XP за пункт.</p><div class="game-stage-xp"><b>${Number(profile.total_xp || 0)} XP</b><span>до уровня: ${xpToLevel(profile.total_xp)} XP</span></div><div class="game-level-bar"><i style="width:${Number(profile.total_xp || 0) % 100}%"></i></div><small class="game-reward-rules">${esc(rewardRules)}</small></div>
     <div class="game-hero" aria-label="Герой собирается из опыта владений">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span><span class="game-hero-marks" aria-hidden="true">${heroMarks}</span></div>
     <div class="game-stage-signal"><span>Дейлики</span><strong>${habitsDone}/${dailyTotal}</strong>${dailySetComplete ? `<small>набор · +${Number(dailyProgress.bonus_xp)} XP</small>` : ""}</div>
   </section>
-  <div class="game-today-grid">
+  ${todaySectionControl}<div class="game-today-grid">
     <section class="game-focus">
       <div class="game-heading"><h2>Сегодня</h2><span>${quests.length}/3 квеста · ${habitsDone}/${dailyTotal} дейликов</span></div>
       <div class="game-quests">${questRows}</div>
@@ -449,8 +479,25 @@ function renderToday() {
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
       <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/${dailyTotal}</span></div>${dailyRows}${dailySetReward}</div>${longQuestSection}${extraRows}${pulseRows}${workLog}
     </section>
-    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств по всему накопленному опыту">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
+    <section class="game-skills">${realmSection}${weeklySection}</section>
   </div>`;
+  const collapseDetails = [...el.querySelectorAll("[data-today-section]")];
+  const syncTodaySectionControl = () => {
+    const control = el.querySelector(".game-collapse-all");
+    if (control) control.textContent = collapseDetails.every(details => details.open) ? "Свернуть всё" : "Развернуть всё";
+  };
+  collapseDetails.forEach(details => details.addEventListener("toggle", () => {
+    saveTodaySectionOpen(details.dataset.todaySection, details.open);
+    syncTodaySectionControl();
+  }));
+  el.querySelector(".game-collapse-all")?.addEventListener("click", () => {
+    const open = !collapseDetails.every(details => details.open);
+    collapseDetails.forEach(details => {
+      details.open = open;
+      saveTodaySectionOpen(details.dataset.todaySection, open);
+    });
+    syncTodaySectionControl();
+  });
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.closest(".game-quest").dataset.id));
   el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.dataset.id));
   el.querySelectorAll(".game-done-task").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.dataset.id));
