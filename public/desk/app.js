@@ -26,7 +26,7 @@ let DIGEST_MODE = localStorage.getItem("desk_digest_mode") || "morning";
 let DESK_MODE = localStorage.getItem("desk_mode") || "light";
 let REALM_MAP_SCENIC = localStorage.getItem("desk_realm_map_scenic") === "1";
 let SELECTED_HABIT_ID = localStorage.getItem("desk_selected_habit") || "";
-let DRAWER_WIDE = localStorage.getItem("desk_drawer_wide") === "1";
+let DRAWER_WIDTH = Number(localStorage.getItem("desk_drawer_width")) || 420;
 const OPEN_QUEST_CHECKLISTS = new Set();
 let OPEN_PULSE_LOG = false;
 
@@ -1359,17 +1359,76 @@ function closeDrawer() {
   document.body.classList.remove("drawer-on");
 }
 
-function applyDrawerWidth(allowWide) {
-  const el = document.getElementById("drawer");
-  const wide = Boolean(allowWide && DRAWER_WIDE);
-  document.body.classList.toggle("drawer-wide", wide);
-  if (el) el.classList.toggle("drawer-wide", wide);
+function drawerWidthLimits() {
+  const min = 360;
+  const max = Math.max(min, Math.min(900, window.innerWidth - 160));
+  return { min, max };
 }
 
-function showDrawer(allowWide) {
+function applyDrawerWidth() {
   const el = document.getElementById("drawer");
+  const { min, max } = drawerWidthLimits();
+  DRAWER_WIDTH = Math.round(Math.min(max, Math.max(min, DRAWER_WIDTH)));
+  const width = `${DRAWER_WIDTH}px`;
+  document.body.style.setProperty("--desk-drawer-width", width);
+  if (el) el.style.setProperty("--desk-drawer-width", width);
+}
+
+function setDrawerWidth(width) {
+  DRAWER_WIDTH = Number(width || DRAWER_WIDTH);
+  applyDrawerWidth();
+  localStorage.setItem("desk_drawer_width", String(DRAWER_WIDTH));
+}
+
+function bindDrawerResize() {
+  const handle = document.querySelector("#drawer .drawer-resize-handle");
+  if (!handle) return;
+  const syncAria = () => {
+    const { min, max } = drawerWidthLimits();
+    handle.setAttribute("aria-valuemin", String(min));
+    handle.setAttribute("aria-valuemax", String(max));
+    handle.setAttribute("aria-valuenow", String(DRAWER_WIDTH));
+  };
+  const resize = clientX => {
+    setDrawerWidth(window.innerWidth - clientX);
+    syncAria();
+  };
+  handle.onpointerdown = event => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    handle.setPointerCapture(event.pointerId);
+    document.body.classList.add("drawer-resizing");
+    const move = e => resize(e.clientX);
+    const stop = e => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+      handle.removeEventListener("pointercancel", stop);
+      document.body.classList.remove("drawer-resizing");
+      if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+    handle.addEventListener("pointercancel", stop);
+  };
+  handle.onkeydown = event => {
+    const step = event.shiftKey ? 40 : 20;
+    if (event.key === "ArrowLeft") { event.preventDefault(); setDrawerWidth(DRAWER_WIDTH + step); syncAria(); }
+    if (event.key === "ArrowRight") { event.preventDefault(); setDrawerWidth(DRAWER_WIDTH - step); syncAria(); }
+    if (event.key === "Home") { event.preventDefault(); setDrawerWidth(drawerWidthLimits().min); syncAria(); }
+    if (event.key === "End") { event.preventDefault(); setDrawerWidth(drawerWidthLimits().max); syncAria(); }
+  };
+  syncAria();
+}
+
+function showDrawer(resizable = false) {
+  const el = document.getElementById("drawer");
+  if (resizable) {
+    applyDrawerWidth();
+  } else {
+    document.body.style.removeProperty("--desk-drawer-width");
+    if (el) el.style.removeProperty("--desk-drawer-width");
+  }
   if (el) el.hidden = false;
-  applyDrawerWidth(allowWide);
   document.body.classList.add("drawer-on");
 }
 
@@ -1617,12 +1676,12 @@ function openTask(id, opts) {
   const backTask = backId ? taskById(backId) : null;
 
   document.getElementById("drawer").innerHTML = `
+    <div class="drawer-resize-handle" role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
     <div class="drawer-body task-drawer">
       ${backId ? `<button type="button" class="ghost td-back d-back" title="${esc(backTask ? backTask.title : "назад")}">← ${esc(backTask ? (backTask.title.length > 36 ? backTask.title.slice(0, 36) + "…" : backTask.title) : "назад")}</button>` : ""}
       <div class="td-header">
         <div class="td-title-row">
           <input id="d-title" class="td-title" type="text" value="${esc(t.title)}"/>
-          <button type="button" class="ghost d-width-toggle" title="${DRAWER_WIDE ? "Обычная ширина панели" : "Расширить панель"}" aria-label="${DRAWER_WIDE ? "Обычная ширина панели" : "Расширить панель"}" aria-pressed="${DRAWER_WIDE ? "true" : "false"}">${DRAWER_WIDE ? "Узко" : "Шире"}</button>
           <button type="button" class="ghost d-close" title="Скрыть" aria-label="Закрыть">×</button>
         </div>
         <select id="d-area" class="td-area-pill ${areaCssName(area)}">
@@ -1742,14 +1801,7 @@ function openTask(id, opts) {
   if (opts.sections) restoreDrawerSections(opts.sections);
 
   document.querySelectorAll("#drawer .d-close").forEach(btn => { btn.onclick = closeDrawer; });
-  const widthToggle = document.querySelector("#drawer .d-width-toggle");
-  if (widthToggle) {
-    widthToggle.onclick = () => {
-      DRAWER_WIDE = !DRAWER_WIDE;
-      localStorage.setItem("desk_drawer_wide", DRAWER_WIDE ? "1" : "0");
-      openTask(id, { sections: saveDrawerSections() });
-    };
-  }
+  bindDrawerResize();
   const backBtn = document.querySelector("#drawer .d-back");
   if (backBtn) {
     backBtn.onclick = () => {
