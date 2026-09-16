@@ -2504,6 +2504,48 @@ function desk_game_remove_daily_quest(PDO $db, string $taskId, string $date): bo
     return $st->rowCount() > 0;
 }
 
+/** Saves an intentional order for ordinary tasks due on one calendar day. */
+function desk_game_set_today_task_order(PDO $db, string $date, array $taskIds): bool
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || count($taskIds) > 100) {
+        return false;
+    }
+    $taskIds = array_values(array_filter(array_map(static fn($id) => trim((string)$id), $taskIds), static fn($id) => $id !== ''));
+    if (count($taskIds) !== count(array_unique($taskIds))) {
+        return false;
+    }
+
+    return (bool)desk_game_transaction($db, static function () use ($db, $date, $taskIds): bool {
+        if ($taskIds) {
+            $marks = implode(',', array_fill(0, count($taskIds), '?'));
+            $st = $db->prepare("SELECT t.id
+                FROM desk_tasks t
+                LEFT JOIN game_daily_quests q ON q.task_id = t.id AND q.quest_date = ?
+                WHERE t.id IN ({$marks})
+                  AND t.parent_task_id = ''
+                  AND t.status <> 'done'
+                  AND DATE(COALESCE(t.due_start, t.due_date)) = ?
+                  AND q.task_id IS NULL");
+            $st->execute(array_merge([$date], $taskIds, [$date]));
+            $validIds = array_map(static fn($row) => (string)$row['id'], $st->fetchAll());
+            if (count($validIds) !== count($taskIds)) {
+                return false;
+            }
+        }
+
+        $db->prepare('DELETE FROM game_today_task_order WHERE task_date = ?')->execute([$date]);
+        if (!$taskIds) {
+            return true;
+        }
+        $now = desk_sql_now();
+        $insert = $db->prepare('INSERT INTO game_today_task_order (task_date,task_id,position,created_at,updated_at) VALUES (?,?,?,?,?)');
+        foreach ($taskIds as $position => $taskId) {
+            $insert->execute([$date, $taskId, $position, $now, $now]);
+        }
+        return true;
+    });
+}
+
 function desk_game_state(PDO $db, array $store): array
 {
     desk_game_seed($db);
@@ -2523,6 +2565,9 @@ function desk_game_state(PDO $db, array $store): array
     $st = $db->prepare('SELECT task_id FROM game_daily_quests WHERE quest_date = ? ORDER BY position, created_at');
     $st->execute([$today]);
     $daily = array_map(static fn($row) => (string)$row['task_id'], $st->fetchAll());
+    $st = $db->prepare('SELECT task_id FROM game_today_task_order WHERE task_date = ? ORDER BY position, created_at');
+    $st->execute([$today]);
+    $todayTaskOrder = array_map(static fn($row) => (string)$row['task_id'], $st->fetchAll());
     $rankBindings = $db->query('SELECT object_type,object_id,rank_id,xp_override FROM game_rank_bindings')->fetchAll();
     $dailyHabits = $db->query('SELECT d.habit_id,d.position,h.title,h.checks,b.rank_id FROM game_daily_habits d JOIN desk_habits h ON h.id = d.habit_id LEFT JOIN game_rank_bindings b ON b.object_type = \'habit\' AND b.object_id = d.habit_id ORDER BY d.position')->fetchAll();
     $dailyDone = 0;
@@ -2566,6 +2611,7 @@ function desk_game_state(PDO $db, array $store): array
         'rank_bindings' => $rankBindings,
         'ranks' => desk_game_ranks(),
         'daily_quests' => $daily,
+        'today_task_order' => $todayTaskOrder,
         'daily_habits' => $dailyHabits,
         'daily_progress' => ['done' => $dailyDone, 'total' => $dailyTotal, 'bonus_xp' => $dailyBonus, 'bonus_awarded' => $dailyBonusAwarded],
         'today_xp' => $todayXp,

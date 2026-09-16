@@ -239,6 +239,17 @@ if ($method === 'DELETE' && preg_match('#^game/daily-quests/([^/]+)$#', $rest, $
     desk_respond(['ok' => desk_game_remove_daily_quest($db, $m[1], $date)]);
 }
 
+if ($method === 'POST' && ($rest === 'game/today-task-order' || $rest === 'game/today-task-order/')) {
+    desk_need_view();
+    $db = desk_need_db();
+    if (!$db) desk_respond(['ok' => false, 'error' => 'no_db'], 503);
+    $raw = desk_body();
+    $date = (string)($raw['date'] ?? desk_moscow_date());
+    $taskIds = is_array($raw['task_ids'] ?? null) ? $raw['task_ids'] : [];
+    $ok = desk_game_set_today_task_order($db, $date, $taskIds);
+    desk_respond(['ok' => $ok], $ok ? 200 : 400);
+}
+
 if ($method === 'POST' && preg_match('#^tasks/([^/]+)/comments$#', $rest, $m)) {
     desk_need_view();
     $raw = desk_body();

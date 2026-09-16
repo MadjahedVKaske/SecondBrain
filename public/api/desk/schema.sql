@@ -242,6 +242,18 @@ CREATE TABLE IF NOT EXISTS game_daily_quests (
   KEY idx_game_daily_quests_task (task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Manual priority for ordinary tasks due on one day. This stays separate from
+-- task facts, so prioritising an expedition never rewrites task timestamps.
+CREATE TABLE IF NOT EXISTS game_today_task_order (
+  task_date DATE NOT NULL,
+  task_id VARCHAR(36) NOT NULL,
+  position INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (task_date, task_id),
+  KEY idx_game_today_task_order_date (task_date, position)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Rank is a voluntary estimate of emotional effort.  It lives beside, not in,
 -- Desk objects so task and habit facts stay untouched.
 CREATE TABLE IF NOT EXISTS game_rank_bindings (

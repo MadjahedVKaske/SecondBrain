@@ -29,7 +29,7 @@ let SELECTED_HABIT_ID = localStorage.getItem("desk_selected_habit") || "";
 let DRAWER_WIDTH = Number(localStorage.getItem("desk_drawer_width")) || 420;
 const OPEN_QUEST_CHECKLISTS = new Set();
 let OPEN_PULSE_LOG = false;
-const TODAY_SECTION_KEYS = ["realms", "weekly", "long", "extra"];
+const TODAY_SECTION_KEYS = ["dailies", "realms", "weekly", "long", "extra"];
 let TODAY_SECTION_OPEN = (() => {
   try {
     const saved = JSON.parse(localStorage.getItem("desk_today_sections_v1") || "{}");
@@ -46,6 +46,18 @@ function todaySectionIsOpen(key) {
 function saveTodaySectionOpen(key, open) {
   TODAY_SECTION_OPEN[key] = !!open;
   localStorage.setItem("desk_today_sections_v1", JSON.stringify(TODAY_SECTION_OPEN));
+}
+
+function orderedTodayTasks(tasks) {
+  const positions = new Map((game()?.today_task_order || []).map((id, index) => [id, index]));
+  return [...tasks].sort((a, b) => {
+    const aPosition = positions.get(a.id);
+    const bPosition = positions.get(b.id);
+    if (aPosition == null && bPosition == null) return 0;
+    if (aPosition == null) return 1;
+    if (bPosition == null) return -1;
+    return aPosition - bPosition;
+  });
 }
 
 const AREA_COLOR = {
@@ -440,7 +452,9 @@ function renderToday() {
       ${checklist}
     </article>`;
   }).join("") || `<div class="game-empty"><b>Фокус пока свободен.</b><span>Открой задачу со шагами или чек-листом и добавь её в «Сегодня».</span></div>`;
-  const otherTodayRows = otherTodayTasks.map(t => `<button type="button" class="game-other-task" data-id="${esc(t.id)}"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)}</small></button>`).join("");
+  const orderedOtherTodayTasks = orderedTodayTasks(otherTodayTasks);
+  const orderIcon = direction => `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="${direction === "up" ? "M6 2 2.5 6h2.2v4h2.6V6h2.2z" : "M4.7 2v4H2.5L6 10l3.5-4H7.3V2z"}"/></svg>`;
+  const otherTodayRows = orderedOtherTodayTasks.map((t, index) => `<div class="game-other-task-row"><button type="button" class="game-other-task" data-id="${esc(t.id)}"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)}</small></button><span class="game-other-priority" aria-label="Приоритет задачи"><button type="button" class="game-other-move" data-id="${esc(t.id)}" data-direction="up" aria-label="Поднять задачу «${esc(t.title)}»" title="Поднять" ${index === 0 ? "disabled" : ""}>${orderIcon("up")}</button><button type="button" class="game-other-move" data-id="${esc(t.id)}" data-direction="down" aria-label="Опустить задачу «${esc(t.title)}»" title="Опустить" ${index === orderedOtherTodayTasks.length - 1 ? "disabled" : ""}>${orderIcon("down")}</button></span></div>`).join("");
   const rules = g.rules || {};
   const doneTodayRows = doneTodayTasks.map(t => {
     const rank = gameRankMeta(gameRankId("task", t.id));
@@ -454,11 +468,13 @@ function renderToday() {
   }).join("");
   const workLog = `<details class="game-work-log"><summary><span>Учёт работ</span><b>${worksToday.length ? `${hoursToday.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ч · ${worksToday.length}` : "пока пусто"}</b></summary>${worksToday.length ? `<div class="game-work-list">${workRows}</div>` : `<p>Здесь появятся часы, зафиксированные сегодня в задачах.</p>`}</details>`;
   const todayCollapse = (key, title, meta, content) => `<details class="game-today-collapse" id="game-today-${key}" data-today-section="${key}" ${todaySectionIsOpen(key) ? "open" : ""}><summary><span>${title}</span><small>${meta}</small></summary><div class="game-today-collapse-body">${content}</div></details>`;
+  const dailySection = todayCollapse("dailies", "Дейлики", `${habitsDone}/${dailyTotal}`, `<div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/${dailyTotal}</span></div>${dailyRows}${dailySetReward}</div>`);
   const realmSection = todayCollapse("realms", "Королевства", `+${Number(g.today_xp || 0)} XP сегодня`, `<div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств по всему накопленному опыту">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>`);
   const weeklySection = weeklyRows ? todayCollapse("weekly", "Недельные ориентиры", `${weeklyPlans.length} в плане`, `<div class="game-weekly-plans">${weeklyRows}</div>`) : "";
   const longQuestSection = longQuestContent ? todayCollapse("long", "Длительные квесты", `${longQuests.length} активных`, longQuestContent) : "";
   const extraRows = extraContent ? todayCollapse("extra", "Дополнительно", "вне основного набора", extraContent) : "";
   const todaySections = TODAY_SECTION_KEYS.filter(key => ({
+    dailies: true,
     realms: true,
     weekly: Boolean(weeklyRows),
     long: Boolean(longQuestContent),
@@ -478,7 +494,7 @@ function renderToday() {
       <div class="game-quests">${questRows}</div>
       ${otherTodayRows ? `<div class="game-other-today"><div class="game-daily-head">Ещё на сегодня <span>${otherTodayTasks.length}</span></div>${otherTodayRows}</div>` : ""}
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
-      <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/${dailyTotal}</span></div>${dailyRows}${dailySetReward}</div>${longQuestSection}${extraRows}${pulseRows}${workLog}
+      ${dailySection}${longQuestSection}${extraRows}${pulseRows}${workLog}
     </section>
     <section class="game-skills">${realmSection}${weeklySection}</section>
   </div>`;
@@ -501,6 +517,17 @@ function renderToday() {
   });
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.closest(".game-quest").dataset.id));
   el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.dataset.id));
+  el.querySelectorAll(".game-other-move").forEach(btn => btn.onclick = async () => {
+    const from = orderedOtherTodayTasks.findIndex(task => task.id === btn.dataset.id);
+    const to = from + (btn.dataset.direction === "up" ? -1 : 1);
+    if (from < 0 || to < 0 || to >= orderedOtherTodayTasks.length) return;
+    const taskIds = orderedOtherTodayTasks.map(task => task.id);
+    [taskIds[from], taskIds[to]] = [taskIds[to], taskIds[from]];
+    const out = await api("game/today-task-order", { date: STATE.today, task_ids: taskIds });
+    if (!out || !out.ok) { toast("Порядок задач не сохранился"); return; }
+    g.today_task_order = taskIds;
+    renderToday();
+  });
   el.querySelectorAll(".game-done-task").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.dataset.id));
   el.querySelectorAll(".game-long-quest").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-work-row").forEach(btn => btn.onclick = () => btn.dataset.id && openTask(btn.dataset.id, { clearStack: true }));
