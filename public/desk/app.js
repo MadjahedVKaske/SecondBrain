@@ -252,6 +252,20 @@ function xpToLevel(totalXp) {
   return Math.max(0, 100 - (Number(totalXp || 0) % 100));
 }
 
+function realmProgress(xp) {
+  const total = Math.max(0, Number(xp || 0));
+  const completedLevels = Math.floor(total / 100);
+  return { xp: total, level: completedLevels + 1, withinLevel: total % 100, completedLevels };
+}
+
+function realmMilestones(progress) {
+  const shownCompleted = Math.min(3, progress.completedLevels);
+  const overflow = Math.max(0, progress.completedLevels - shownCompleted);
+  const completed = Array.from({ length: shownCompleted }, () => `<i class="complete"></i>`).join("");
+  const current = `<i class="current" style="--tier-fill:${progress.withinLevel}%"></i>`;
+  return `<span class="game-realm-tiers" aria-hidden="true">${completed}${overflow ? `<b>+${overflow}</b>` : ""}${current}</span>`;
+}
+
 function pixelSprite(active, className = "") {
   const cells = 8 * 10;
   const on = new Set(active);
@@ -374,12 +388,11 @@ function renderToday() {
   const longQuestSection = longQuestRows ? `<section class="game-long-quests" aria-label="Длительные квесты"><div class="game-daily-head">Длительные квесты <span>${longQuests.length}</span></div>${longQuestRows}</section>` : "";
   const realmRows = realmMeta.map(realm => {
     const skill = (g.skills || []).find(s => s.id === realm.id) || { xp: 0 };
-    const xp = Number(skill.xp || 0);
-    const pct = Math.min(100, xp % 100);
+    const progress = realmProgress(skill.xp);
     return `<article class="game-realm game-realm--${realm.id}">
       ${pixelSprite(realm.sprite, "realm-sprite")}
-      <div><strong>${realm.title}</strong><small>${realm.note}</small><div class="bar"><i style="width:${pct}%"></i></div></div>
-      <b>${xp} XP</b>
+      <div><strong>${realm.title}</strong><small>${realm.note}</small>${realmMilestones(progress)}</div>
+      <b>${progress.xp} XP · ур. ${progress.level}</b>
     </article>`;
   }).join("");
   const realmTotal = realmMeta.reduce((sum, realm) => sum + Number((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0), 0);
@@ -388,11 +401,9 @@ function renderToday() {
     const strength = Math.min(1, xp / 100);
     return `<i class="game-hero-mark game-hero-mark--${realm.id}" style="--mark-strength:${strength}" aria-label="${esc(realm.title)}: ${xp} XP"></i>`;
   }).join("");
-  const balanceMax = Math.max(1, ...realmMeta.map(realm => Number((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0)));
   const balanceRows = realmMeta.map(realm => {
-    const xp = Number((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0);
-    const height = Math.max(10, Math.round(xp * 100 / balanceMax));
-    return `<div class="game-balance-realm game-balance-realm--${realm.id}" style="--realm-height:${height}%"><span><b>${esc(realm.title)}</b><small>${xp} XP</small></span><i aria-hidden="true"></i></div>`;
+    const progress = realmProgress((g.skills || []).find(skill => skill.id === realm.id)?.xp || 0);
+    return `<div class="game-balance-realm game-balance-realm--${realm.id}"><span><b>${esc(realm.title)}</b><small>${progress.xp} XP · ур. ${progress.level}</small></span>${realmMilestones(progress)}<small class="game-balance-next">${progress.withinLevel}/100 до следующей ступени</small></div>`;
   }).join("");
   const questRows = quests.map(t => {
     const q = questStats(t);
@@ -436,7 +447,7 @@ function renderToday() {
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
       <div class="game-dailies"><div class="game-daily-head">Дейлики <span>${habitsDone}/${dailyTotal}</span></div>${dailyRows}${dailySetReward}</div>${longQuestSection}${extraRows}${pulseRows}${workLog}
     </section>
-    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств по всему накопленному опыту">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
+    <section class="game-skills"><div class="game-heading"><h2>Королевства</h2><span>${esc(recent)}</span></div><div class="game-today-xp"><span>Опыт сегодня</span><b>+${Number(g.today_xp || 0)} XP</b></div><div class="game-realms">${realmRows}</div><details class="game-balance-map"><summary>Карта баланса <small>развернуть</small></summary><section aria-label="Баланс королевств: у каждого владения собственные ступени по 100 XP">${balanceRows}</section></details><small class="game-realm-total">Все владения: ${realmTotal} XP · это совпадает с опытом героя</small>${weeklyRows ? `<div class="game-skills-divider">Недельные ориентиры</div><div class="game-weekly-plans">${weeklyRows}</div>` : ""}</section>
   </div>`;
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => openTask(btn.closest(".game-quest").dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
