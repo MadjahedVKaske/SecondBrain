@@ -228,6 +228,7 @@ button.danger { background: var(--danger); color: #fff; }
 .filters a.chip-проект.on { background: var(--area-project); color: #0d1117; }
 .filters a.chip-все.on { background: var(--accent); color: #0d1117; }
 .filters .filt-sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; flex-shrink: 0; }
+.filters #ctx-due,
 .filters #ctx-client,
 .filters #ctx-proj { flex: 0 1 min(200px, 42vw); height: 34px; padding: 4px 8px; font-size: .82rem; }
 .filters .filt-reset,
@@ -811,6 +812,7 @@ details.group-done > summary.group-head .group-title {
 .game-stage-signal strong { color:#f0f7ff; font-size:1.5rem; line-height:1; }
 .game-stage-signal small { color:#b8c9d8; font-size:.72rem; }
 .game-today-grid { display: grid; grid-template-columns: minmax(300px, 1.4fr) minmax(260px, 1fr); gap: 12px; align-items: start; }
+.game-tomorrow-grid { grid-template-columns: minmax(0, 1fr); }
 .game-focus, .game-skills { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 .game-tomorrow { min-height:240px; padding:18px; border:1px solid #2a3d52; border-radius:14px; background:linear-gradient(135deg,#111a25,#151e2b); }
 .game-tomorrow .game-heading { align-items:center; margin-bottom:16px; }.game-tomorrow .game-heading h2 { margin-top:3px; font-size:1.2rem; letter-spacing:-.02em; text-transform:none; }.game-tomorrow .game-heading > span { padding:5px 8px; border:1px solid var(--line); border-radius:99px; }

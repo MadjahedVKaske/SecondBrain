@@ -21,6 +21,8 @@ let drawerTaskId = "";
 let AREA_FILTER = localStorage.getItem("desk_area") || "все";
 let CLIENT_FILTER = localStorage.getItem("desk_client") || "";
 let PROJECT_FILTER = localStorage.getItem("desk_project") || "";
+let DUE_FILTER = localStorage.getItem("desk_due_filter") || "all";
+let DIRECTION_FILTER = localStorage.getItem("desk_direction_filter") || "all";
 let SHOW_DONE = localStorage.getItem("desk_show_done") !== "0";
 let DIGEST_MODE = localStorage.getItem("desk_digest_mode") || "morning";
 let DESK_MODE = localStorage.getItem("desk_mode") || "light";
@@ -29,6 +31,14 @@ let SELECTED_HABIT_ID = localStorage.getItem("desk_selected_habit") || "";
 let DRAWER_WIDTH = Number(localStorage.getItem("desk_drawer_width")) || 420;
 const OPEN_QUEST_CHECKLISTS = new Set();
 let OPEN_PULSE_LOG = false;
+const TASK_GROUP_OPEN = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("desk_task_groups_v1") || "{}");
+    return saved && typeof saved === "object" ? saved : {};
+  } catch (_) {
+    return {};
+  }
+})();
 const TODAY_SECTION_KEYS = ["dailies", "realms", "weekly", "long", "extra"];
 let TODAY_SECTION_OPEN = (() => {
   try {
@@ -46,6 +56,19 @@ function todaySectionIsOpen(key) {
 function saveTodaySectionOpen(key, open) {
   TODAY_SECTION_OPEN[key] = !!open;
   localStorage.setItem("desk_today_sections_v1", JSON.stringify(TODAY_SECTION_OPEN));
+}
+
+function taskGroupKey(scope, directionId) {
+  return `${scope}:${directionId || "none"}`;
+}
+
+function taskGroupIsOpen(key) {
+  return TASK_GROUP_OPEN[key] === true;
+}
+
+function saveTaskGroupOpen(key, open) {
+  TASK_GROUP_OPEN[key] = !!open;
+  localStorage.setItem("desk_task_groups_v1", JSON.stringify(TASK_GROUP_OPEN));
 }
 
 function orderedTodayTasks(tasks) {
@@ -666,16 +689,8 @@ function renderTomorrow() {
     const realm = gameSkillId("task", t.id);
     return `<article class="game-quest game-tomorrow-quest game-quest--${esc(realm)}" data-id="${esc(t.id)}"><div class="game-quest-head"><button type="button" class="game-quest-open"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)} ${q.isQuest ? `· ${q.done}/${q.total} шагов` : ""}</small><span class="bar"><i style="width:${pct}%"></i></span></button></div>${checks}</article>`;
   }).join("") || `<div class="game-empty"><b>На завтра пока пусто.</b><span>Запланируй задачу с датой — она появится здесь.</span></div>`;
-  const week = new Set(weekKeys(STATE.today));
-  const weeklyPlans = (STATE.tasks || []).filter(task => /недельная цель/i.test(String(task.notes || "")) && task.status !== "done");
-  const weeklyRows = weeklyPlans.map(task => {
-    const planned = Number((String(task.notes || "").match(/до\s+(\d+(?:[.,]\d+)?)\s*час/i) || [])[1]?.replace(",", ".") || 0);
-    const booked = (STATE.works || []).filter(work => work.task_id === task.id && week.has(work.date)).reduce((sum, work) => sum + Number(work.hours || 0), 0);
-    const progress = planned ? Math.min(100, Math.round(booked * 100 / planned)) : 0;
-    return `<button type="button" class="game-weekly-plan" data-id="${esc(task.id)}"><span><b>${esc(task.title)}</b><small>${booked.toLocaleString("ru-RU", { maximumFractionDigits: 2 })}${planned ? ` / ${planned}` : ""} ч на этой неделе</small><span class="game-weekly-progress" aria-label="Выполнено ${progress}%"><i style="width:${progress}%"></i></span></span>${gameRankBadgeFor("task", task.id)}</button>`;
-  }).join("");
   const heroPixels = [9,10,11,12,13,14,17,18,19,20,21,22,25,26,27,28,29,30,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71];
-  el.innerHTML = `<section class="game-stage game-stage--tomorrow" aria-label="Экспедиция на завтра"><div class="game-stage-copy"><h2>Завтра · ${esc(label)}</h2><p>Следующий ход уже собран. Завтра останется только выбрать квест и начать.</p><div class="game-stage-xp"><b>${tasks.length} ${tasks.length === 1 ? "квест" : "квестов"}</b><span>награда пути: ${potentialXp} XP</span></div><div class="game-level-bar"><i style="width:${Math.min(100, potentialXp)}%"></i></div></div><div class="game-hero">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span></div><div class="game-stage-signal"><span>Текущий уровень</span><strong>${Number(profile.level || 1)}</strong><small>${Number(profile.total_xp || 0)} XP всего</small></div></section><div class="game-today-grid game-tomorrow-grid"><section class="game-focus"><div class="game-heading"><h2>Квесты на завтра</h2><span>${tasks.length} ${tasks.length === 1 ? "задача" : "задач"}</span></div><div class="game-quests">${rows}</div><div class="game-dailies game-tomorrow-rituals"><div class="game-daily-head">Дейлики</div><div class="game-daily"><span>Пять ежедневных ритуалов</span><small>откроются завтра</small></div></div></section><section class="game-skills"><div class="game-heading"><h2>Ориентиры</h2><span>на этой неделе</span></div>${weeklyRows ? `<div class="game-weekly-plans">${weeklyRows}</div>` : `<div class="game-empty"><b>Недельных ориентиров пока нет.</b><span>Большая цель появится здесь с её прогрессом.</span></div>`}</section></div>`;
+  el.innerHTML = `<section class="game-stage game-stage--tomorrow" aria-label="Экспедиция на завтра"><div class="game-stage-copy"><h2>Завтра · ${esc(label)}</h2><p>Следующий ход уже собран. Завтра останется только выбрать квест и начать.</p><div class="game-stage-xp"><b>${tasks.length} ${tasks.length === 1 ? "квест" : "квестов"}</b><span>награда пути: ${potentialXp} XP</span></div><div class="game-level-bar"><i style="width:${Math.min(100, potentialXp)}%"></i></div></div><div class="game-hero">${pixelSprite(heroPixels, "hero-sprite")}<span class="game-hero-ground" aria-hidden="true"></span></div><div class="game-stage-signal"><span>Текущий уровень</span><strong>${Number(profile.level || 1)}</strong><small>${Number(profile.total_xp || 0)} XP всего</small></div></section><div class="game-today-grid game-tomorrow-grid"><section class="game-focus"><div class="game-heading"><h2>Квесты на завтра</h2><span>${tasks.length} ${tasks.length === 1 ? "задача" : "задач"}</span></div><div class="game-quests">${rows}</div><div class="game-dailies game-tomorrow-rituals"><div class="game-daily-head">Дейлики</div><div class="game-daily"><span>Пять ежедневных ритуалов</span><small>откроются завтра</small></div></div></section></div>`;
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => openTask(btn.closest(".game-quest").dataset.id, { clearStack: true }));
   el.querySelectorAll(".game-quest-checks").forEach(details => details.addEventListener("toggle", () => {
     if (details.open) OPEN_QUEST_CHECKLISTS.add(details.dataset.id);
@@ -687,7 +702,6 @@ function renderTomorrow() {
     if (!out || !out.ok) { toast("Пункт не сохранился"); return; }
     await load();
   });
-  el.querySelectorAll(".game-weekly-plan").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
 }
 
 function linkCount(lk) {
@@ -902,6 +916,7 @@ function prefillTaskForm() {
 
 function openProject(id) {
   PROJECT_FILTER = id || "";
+  DIRECTION_FILTER = "all";
   if (PROJECT_FILTER) {
     const p = (STATE.projects || []).find(x => x.id === PROJECT_FILTER);
     if (p && p.client_id) CLIENT_FILTER = p.client_id;
@@ -1107,6 +1122,8 @@ function saveDeskFilters() {
   localStorage.setItem("desk_area", AREA_FILTER);
   localStorage.setItem("desk_client", CLIENT_FILTER);
   localStorage.setItem("desk_project", PROJECT_FILTER);
+  localStorage.setItem("desk_due_filter", DUE_FILTER);
+  localStorage.setItem("desk_direction_filter", DIRECTION_FILTER);
   localStorage.setItem("desk_show_done", SHOW_DONE ? "1" : "0");
 }
 
@@ -1123,6 +1140,8 @@ function restoreDeskFilters() {
     }
   }
   SHOW_DONE = localStorage.getItem("desk_show_done") !== "0";
+  DUE_FILTER = ["all", "overdue", "yesterday", "today", "tomorrow", "scheduled", "none"].includes(DUE_FILTER) ? DUE_FILTER : "all";
+  DIRECTION_FILTER = DIRECTION_FILTER === "none" ? "none" : "all";
 }
 
 function taskMatchesClient(t, clientId) {
@@ -1138,11 +1157,29 @@ function applyTaskFilters(list) {
   let out = byArea(list);
   if (CLIENT_FILTER) out = out.filter(t => taskMatchesClient(t, CLIENT_FILTER));
   if (PROJECT_FILTER) out = out.filter(t => taskHasDirection(t, PROJECT_FILTER));
+  if (DIRECTION_FILTER === "none") out = out.filter(t => !taskDirectionIds(t).length);
+  const today = String(STATE?.today || "");
+  const yesterdayDate = new Date(`${today}T12:00:00`);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const tomorrowDate = new Date(`${today}T12:00:00`);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const yesterday = ymd(yesterdayDate);
+  const tomorrow = ymd(tomorrowDate);
+  if (DUE_FILTER !== "all") out = out.filter(t => {
+    const due = String(t.due || "").slice(0, 10);
+    if (DUE_FILTER === "none") return !due;
+    if (DUE_FILTER === "scheduled") return !!due;
+    if (DUE_FILTER === "overdue") return !!due && due < today;
+    if (DUE_FILTER === "yesterday") return due === yesterday;
+    if (DUE_FILTER === "today") return due === today;
+    if (DUE_FILTER === "tomorrow") return due === tomorrow;
+    return true;
+  });
   return out;
 }
 
 function filtersActive() {
-  return AREA_FILTER !== "все" || !!CLIENT_FILTER || !!PROJECT_FILTER;
+  return AREA_FILTER !== "все" || !!CLIENT_FILTER || !!PROJECT_FILTER || DIRECTION_FILTER !== "all" || DUE_FILTER !== "all";
 }
 
 function taskFilterCounts() {
@@ -1167,6 +1204,8 @@ function clearAllFilters() {
   AREA_FILTER = "все";
   CLIENT_FILTER = "";
   PROJECT_FILTER = "";
+  DIRECTION_FILTER = "all";
+  DUE_FILTER = "all";
   saveDeskFilters();
   renderClientContext();
   renderClientMode();
@@ -1314,9 +1353,19 @@ function renderFilters() {
     .concat((STATE.clients || []).map(c =>
       `<option value="${esc(c.id)}" ${c.id === CLIENT_FILTER ? "selected" : ""}>${esc(c.title)}</option>`
     )).join("");
-  const ctx = `<select id="ctx-client" title="клиент">${clientOpts}</select>
+  const due = `<select id="ctx-due" title="срок">
+      <option value="all" ${DUE_FILTER === "all" ? "selected" : ""}>все сроки</option>
+      <option value="overdue" ${DUE_FILTER === "overdue" ? "selected" : ""}>просроченные</option>
+      <option value="yesterday" ${DUE_FILTER === "yesterday" ? "selected" : ""}>вчера</option>
+      <option value="today" ${DUE_FILTER === "today" ? "selected" : ""}>сегодня</option>
+      <option value="tomorrow" ${DUE_FILTER === "tomorrow" ? "selected" : ""}>завтра</option>
+      <option value="scheduled" ${DUE_FILTER === "scheduled" ? "selected" : ""}>со сроком</option>
+      <option value="none" ${DUE_FILTER === "none" ? "selected" : ""}>без срока</option>
+    </select>`;
+  const ctx = `${due}<select id="ctx-client" title="клиент">${clientOpts}</select>
     <select id="ctx-proj" title="направление">
     <option value="">все направления</option>
+    <option value="__none__" ${DIRECTION_FILTER === "none" ? "selected" : ""}>без направления</option>
     ${projectsForFilter().map(p => {
       const label = projectPath(p);
       return `<option value="${esc(p.id)}" ${p.id === PROJECT_FILTER ? "selected" : ""}>${esc(label)}</option>`;
@@ -1352,10 +1401,30 @@ function renderFilters() {
   const ctxEl = document.getElementById("ctx-proj");
   if (ctxEl) {
     ctxEl.addEventListener("change", () => {
-      if (ctxEl.value) openProject(ctxEl.value);
-      else clearProjectFilter();
+      if (ctxEl.value === "__none__") {
+        PROJECT_FILTER = "";
+        DIRECTION_FILTER = "none";
+        saveDeskFilters();
+        renderFilters();
+        renderProjectBanner();
+        renderTasks();
+      } else if (ctxEl.value) {
+        DIRECTION_FILTER = "all";
+        openProject(ctxEl.value);
+      } else {
+        DIRECTION_FILTER = "all";
+        clearProjectFilter();
+      }
     });
   }
+  const dueEl = document.getElementById("ctx-due");
+  if (dueEl) dueEl.addEventListener("change", () => {
+    DUE_FILTER = dueEl.value;
+    saveDeskFilters();
+    renderFilters();
+    renderProjectBanner();
+    renderTasks();
+  });
   const resetEl = document.getElementById("filt-reset");
   if (resetEl) resetEl.addEventListener("click", clearAllFilters);
   const doneEl = document.getElementById("filt-done");
@@ -1393,7 +1462,7 @@ function groupTasksByDirection(list) {
   return { keys, groups };
 }
 
-function renderTaskGroupsHtml(keys, groups, today) {
+function renderTaskGroupsHtml(keys, groups, today, scope) {
   if (!keys.length) return "";
   return keys.map(k => {
     const list = groups.get(k);
@@ -1403,7 +1472,8 @@ function renderTaskGroupsHtml(keys, groups, today) {
     const filterBtn = k
       ? `<button type="button" class="ghost group-filter" data-pid="${esc(k)}">фильтр</button>`
       : "";
-    return `<details class="group">
+    const groupKey = taskGroupKey(scope, k);
+    return `<details class="group" data-task-group-key="${esc(groupKey)}" ${taskGroupIsOpen(groupKey) ? "open" : ""}>
       <summary class="group-head">
         <span class="group-title">${esc(title)} (${n})</span>${filterBtn}
       </summary>
@@ -1422,6 +1492,9 @@ function toggleTaskFromList(id) {
 }
 
 function wireTaskBoard(board) {
+  board.querySelectorAll(".group[data-task-group-key]").forEach(group => {
+    group.addEventListener("toggle", () => saveTaskGroupOpen(group.dataset.taskGroupKey, group.open));
+  });
   board.querySelectorAll(".group-filter").forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1433,6 +1506,8 @@ function wireTaskBoard(board) {
     el.addEventListener("click", () => toggleTaskFromList(el.dataset.id));
     el.querySelector("input").addEventListener("click", async (e) => {
       e.stopPropagation();
+      const group = el.closest(".group[data-task-group-key]");
+      if (group) saveTaskGroupOpen(group.dataset.taskGroupKey, true);
       await api(`tasks/${el.dataset.id}/status`, { status: e.target.checked ? "done" : "todo" });
       await load();
     });
@@ -1449,11 +1524,11 @@ function renderTasks() {
     : [];
   const openG = groupTasksByDirection(open);
   const doneG = groupTasksByDirection(done);
-  const openHtml = renderTaskGroupsHtml(openG.keys, openG.groups, today);
+  const openHtml = renderTaskGroupsHtml(openG.keys, openG.groups, today, "open");
   const doneHtml = doneG.keys.length
-    ? `<details class="group group-done">
+    ? `<details class="group group-done" data-task-group-key="done:all" ${taskGroupIsOpen("done:all") ? "open" : ""}>
         <summary class="group-head"><span class="group-title">Сделано (${done.length})</span></summary>
-        <div class="done-board">${renderTaskGroupsHtml(doneG.keys, doneG.groups, today)}</div>
+        <div class="done-board">${renderTaskGroupsHtml(doneG.keys, doneG.groups, today, "done")}</div>
       </details>`
     : "";
   board.innerHTML = (openHtml || `<div class="empty">Нет открытых</div>`) + doneHtml;
