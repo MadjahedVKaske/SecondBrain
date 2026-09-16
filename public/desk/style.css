@@ -76,7 +76,7 @@ h2 { margin: 0 0 10px; font-size: .75rem; text-transform: uppercase; letter-spac
 }
 .form-task, .form-proj, .form-goal, .form-habit, .form-idea {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(128px, 1fr)) auto;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(128px, 1fr)) auto;
   align-items: end;
 }
 .form-proj, .form-goal { grid-template-columns: minmax(220px, 2fr) minmax(160px, 1fr) minmax(140px, 1fr) auto; }

@@ -270,11 +270,18 @@ if ($method === 'POST' && ($rest === 'tasks' || $rest === 'tasks/')) {
     try {
         $payload = desk_body();
         $db = desk_pdo();
+        if (!$db && array_key_exists('skill_id', $payload)) {
+            desk_respond(['ok' => false, 'error' => 'game_db_required'], 503);
+        }
         $row = $db
             ? desk_game_transaction($db, static function () use ($payload, $db) {
                 $task = desk_add_task($payload);
                 if ($task && !desk_game_set_rank($db, 'task', (string)$task['id'], 'green')) {
                     throw new RuntimeException('default_task_rank_failed');
+                }
+                $skillId = trim((string)($payload['skill_id'] ?? 'clients'));
+                if ($task && !desk_game_bind($db, 'task', (string)$task['id'], $skillId)) {
+                    throw new RuntimeException('task_skill_bind_failed');
                 }
                 return $task;
             })

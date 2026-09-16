@@ -1016,6 +1016,7 @@ function bindClientProject(clientSel, projSel) {
 function fillLinkedSelects() {
   const ntC = document.getElementById("nt-client");
   const ntP = document.getElementById("nt-proj");
+  const ntSkill = document.getElementById("nt-game-skill");
   const npC = document.getElementById("np-client");
   const niC = document.getElementById("ni-client");
   if (ntC) {
@@ -1025,6 +1026,10 @@ function fillLinkedSelects() {
   if (ntP) {
     const cur = ntP.value;
     ntP.innerHTML = projectOptions(ntC ? ntC.value : "", cur, true);
+  }
+  if (ntSkill) {
+    const current = ntSkill.value || "clients";
+    ntSkill.innerHTML = gameSkillOptions(current);
   }
   if (npC) {
     const cur = npC.value;
@@ -1382,8 +1387,6 @@ function renderFilters() {
       e.preventDefault();
       AREA_FILTER = a.dataset.a;
       saveDeskFilters();
-      const sel = document.getElementById("nt-area");
-      if (sel && AREA_FILTER !== "все") sel.value = AREA_FILTER;
       renderFilters();
       renderProjectBanner();
       renderTasks();
@@ -3424,8 +3427,6 @@ async function load() {
   STATE = data;
   document.getElementById("stamp").textContent = data.today + " · бюро";
   restoreDeskFilters();
-  const areaEl = document.getElementById("nt-area");
-  if (areaEl && AREA_FILTER !== "все") areaEl.value = AREA_FILTER;
   fillLinkedSelects();
   renderClientContext();
   renderClientMode();
@@ -3481,16 +3482,18 @@ document.getElementById("add-task").addEventListener("submit", async (e) => {
   if (err) err.textContent = "";
   const title = document.getElementById("nt-title").value.trim();
   if (!title) return;
-  const area = document.getElementById("nt-area").value || "работа";
+  const area = "работа";
   const due = document.getElementById("nt-due").value || "";
+  const skillId = document.getElementById("nt-game-skill").value || "clients";
   const keepClient = document.getElementById("nt-client").value;
   const keepProj = document.getElementById("nt-proj").value;
   try {
     const out = await api("tasks", {
       title,
       due,
-      status: document.getElementById("nt-status").value,
+      status: "todo",
       area,
+      skill_id: skillId,
       client_id: keepClient === "__new__" ? "" : keepClient,
       project_id: keepProj === "__new__" ? "" : keepProj,
       all_day: true
@@ -3500,8 +3503,6 @@ document.getElementById("add-task").addEventListener("submit", async (e) => {
       return;
     }
     e.target.reset();
-    document.getElementById("nt-status").value = "todo";
-    document.getElementById("nt-area").value = area;
     fillLinkedSelects();
     if (PROJECT_FILTER) prefillTaskForm();
     else {

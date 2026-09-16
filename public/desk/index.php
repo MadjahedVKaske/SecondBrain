@@ -111,20 +111,8 @@ header('Cache-Control: no-store');
           <input id="nt-title" type="text" placeholder="что сделать" required /></label>
         <label class="fld"><span>срок</span>
           <input id="nt-due" type="date" /></label>
-        <label class="fld"><span>статус</span>
-          <select id="nt-status">
-            <option value="todo">к выполнению</option>
-            <option value="doing">в работе</option>
-            <option value="waiting_reply">ждём ответа</option>
-            <option value="on_test">на тесте</option>
-            <option value="paused">отложено</option>
-          </select></label>
-        <label class="fld"><span>категория</span>
-          <select id="nt-area">
-            <option value="работа">работа</option>
-            <option value="личное">личное</option>
-            <option value="проект">проект</option>
-          </select></label>
+        <label class="fld"><span>навык</span>
+          <select id="nt-game-skill"></select></label>
         <label class="fld"><span>клиент</span>
           <select id="nt-client"></select></label>
         <label class="fld"><span>направление</span>
