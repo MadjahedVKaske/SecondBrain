@@ -257,9 +257,21 @@ if ($method === 'POST' && preg_match('#^tasks/([^/]+)/delete$#', $rest, $m)) {
 if ($method === 'POST' && ($rest === 'tasks' || $rest === 'tasks/')) {
     desk_need_view();
     try {
-        $row = desk_add_task(desk_body());
+        $payload = desk_body();
+        $db = desk_pdo();
+        $row = $db
+            ? desk_game_transaction($db, static function () use ($payload, $db) {
+                $task = desk_add_task($payload);
+                if ($task && !desk_game_set_rank($db, 'task', (string)$task['id'], 'green')) {
+                    throw new RuntimeException('default_task_rank_failed');
+                }
+                return $task;
+            })
+            : desk_add_task($payload);
     } catch (InvalidArgumentException $e) {
         desk_respond(['ok' => false, 'error' => $e->getMessage()], 400);
+    } catch (Throwable $e) {
+        desk_respond(['ok' => false, 'error' => 'save_failed'], 500);
     }
     desk_respond(['ok' => true, 'task' => $row]);
 }

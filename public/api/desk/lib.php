@@ -2958,6 +2958,9 @@ function desk_ingress_add_task(PDO $db, array $request): array
         if ($projectId !== '') {
             $db->prepare('INSERT INTO desk_task_directions (task_id,direction_id,created_at) VALUES (?,?,?)')->execute([$id,$projectId,$now]);
         }
+        if (!desk_game_set_rank($db, 'task', $id, 'green')) {
+            throw new RuntimeException('default_task_rank_failed');
+        }
         $db->prepare('INSERT INTO desk_ingress_requests (source,request_key,request_sha256,task_id,created_at) VALUES (?,?,?,?,?)')->execute([$source,$key,$hash,$id,$now]);
         $db->commit();
         $row = $db->prepare('SELECT * FROM desk_tasks WHERE id=?');
