@@ -453,8 +453,7 @@ function renderToday() {
     </article>`;
   }).join("") || `<div class="game-empty"><b>Фокус пока свободен.</b><span>Открой задачу со шагами или чек-листом и добавь её в «Сегодня».</span></div>`;
   const orderedOtherTodayTasks = orderedTodayTasks(otherTodayTasks);
-  const orderIcon = direction => `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="${direction === "up" ? "M6 2 2.5 6h2.2v4h2.6V6h2.2z" : "M4.7 2v4H2.5L6 10l3.5-4H7.3V2z"}"/></svg>`;
-  const otherTodayRows = orderedOtherTodayTasks.map((t, index) => `<div class="game-other-task-row"><button type="button" class="game-other-task" data-id="${esc(t.id)}"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)}</small></button><span class="game-other-priority" aria-label="Приоритет задачи"><button type="button" class="game-other-move" data-id="${esc(t.id)}" data-direction="up" aria-label="Поднять задачу «${esc(t.title)}»" title="Поднять" ${index === 0 ? "disabled" : ""}>${orderIcon("up")}</button><button type="button" class="game-other-move" data-id="${esc(t.id)}" data-direction="down" aria-label="Опустить задачу «${esc(t.title)}»" title="Опустить" ${index === orderedOtherTodayTasks.length - 1 ? "disabled" : ""}>${orderIcon("down")}</button></span></div>`).join("");
+  const otherTodayRows = orderedOtherTodayTasks.map(t => `<div class="game-other-task-row" data-id="${esc(t.id)}" draggable="true"><button type="button" class="game-other-task" data-id="${esc(t.id)}"><span>${esc(t.title)}</span><small>${gameRankBadgeFor("task", t.id)}</small></button></div>`).join("");
   const rules = g.rules || {};
   const doneTodayRows = doneTodayTasks.map(t => {
     const rank = gameRankMeta(gameRankId("task", t.id));
@@ -492,7 +491,7 @@ function renderToday() {
     <section class="game-focus">
       <div class="game-heading"><h2>Сегодня</h2><span>${quests.length}/3 квеста · ${habitsDone}/${dailyTotal} дейликов</span></div>
       <div class="game-quests">${questRows}</div>
-      ${otherTodayRows ? `<div class="game-other-today"><div class="game-daily-head">Ещё на сегодня <span>${otherTodayTasks.length}</span></div>${otherTodayRows}</div>` : ""}
+      ${otherTodayRows ? `<div class="game-other-today"><div class="game-daily-head">Ещё на сегодня <span>${otherTodayTasks.length}</span></div><div class="game-other-task-list">${otherTodayRows}</div></div>` : ""}
       ${doneTodayRows ? `<details class="game-done-today"><summary><span>Сделано сегодня</span><b>${doneTodayTasks.length} · развернуть</b></summary><div class="game-done-today-list">${doneTodayRows}</div></details>` : ""}
       ${dailySection}${longQuestSection}${extraRows}${pulseRows}${workLog}
     </section>
@@ -516,17 +515,54 @@ function renderToday() {
     syncTodaySectionControl();
   });
   el.querySelectorAll(".game-quest-open").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.closest(".game-quest").dataset.id));
-  el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.dataset.id));
-  el.querySelectorAll(".game-other-move").forEach(btn => btn.onclick = async () => {
-    const from = orderedOtherTodayTasks.findIndex(task => task.id === btn.dataset.id);
-    const to = from + (btn.dataset.direction === "up" ? -1 : 1);
-    if (from < 0 || to < 0 || to >= orderedOtherTodayTasks.length) return;
-    const taskIds = orderedOtherTodayTasks.map(task => task.id);
-    [taskIds[from], taskIds[to]] = [taskIds[to], taskIds[from]];
-    const out = await api("game/today-task-order", { date: STATE.today, task_ids: taskIds });
-    if (!out || !out.ok) { toast("Порядок задач не сохранился"); return; }
-    g.today_task_order = taskIds;
-    renderToday();
+  const otherTaskList = el.querySelector(".game-other-task-list");
+  let suppressTaskOpen = false;
+  let draggedTaskId = "";
+  const clearTaskDropState = () => el.querySelectorAll(".game-other-task-row").forEach(row => row.classList.remove("game-other-task-chosen", "game-other-task-ghost", "game-other-task-drop-before", "game-other-task-drop-after"));
+  if (otherTaskList && orderedOtherTodayTasks.length > 1) {
+    otherTaskList.querySelectorAll(".game-other-task-row").forEach(row => {
+      row.addEventListener("dragstart", event => {
+        draggedTaskId = row.dataset.id;
+        suppressTaskOpen = true;
+        row.classList.add("game-other-task-chosen");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", draggedTaskId);
+      });
+      row.addEventListener("dragover", event => {
+        if (!draggedTaskId || draggedTaskId === row.dataset.id) return;
+        event.preventDefault();
+        const before = event.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2;
+        row.classList.toggle("game-other-task-drop-before", before);
+        row.classList.toggle("game-other-task-drop-after", !before);
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("game-other-task-drop-before", "game-other-task-drop-after"));
+      row.addEventListener("drop", async event => {
+        event.preventDefault();
+        const targetId = row.dataset.id;
+        const sourceId = draggedTaskId || event.dataTransfer.getData("text/plain");
+        const before = event.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2;
+        clearTaskDropState();
+        if (!sourceId || sourceId === targetId) return;
+        const taskIds = orderedOtherTodayTasks.map(task => task.id).filter(id => id !== sourceId);
+        const targetIndex = taskIds.indexOf(targetId);
+        if (targetIndex < 0) return;
+        taskIds.splice(targetIndex + (before ? 0 : 1), 0, sourceId);
+        if (taskIds.join("|") === orderedOtherTodayTasks.map(task => task.id).join("|")) return;
+        const out = await api("game/today-task-order", { date: STATE.today, task_ids: taskIds });
+        if (!out || !out.ok) { toast("Порядок задач не сохранился"); return; }
+        g.today_task_order = taskIds;
+        renderToday();
+      });
+      row.addEventListener("dragend", () => {
+        draggedTaskId = "";
+        clearTaskDropState();
+        window.setTimeout(() => { suppressTaskOpen = false; }, 200);
+      });
+    });
+  }
+  el.querySelectorAll(".game-other-task").forEach(btn => btn.onclick = () => {
+    if (suppressTaskOpen) { suppressTaskOpen = false; return; }
+    toggleTaskFromList(btn.dataset.id);
   });
   el.querySelectorAll(".game-done-task").forEach(btn => btn.onclick = () => toggleTaskFromList(btn.dataset.id));
   el.querySelectorAll(".game-long-quest").forEach(btn => btn.onclick = () => openTask(btn.dataset.id, { clearStack: true }));
